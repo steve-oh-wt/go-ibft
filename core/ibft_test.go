@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -89,7 +90,7 @@ func generateMessages(count uint64, messageType proto.MessageType) []*proto.Ibft
 	return messages
 }
 
-func generateMessagesWithSender(count uint64, messageType proto.MessageType, sender []byte) []*proto.IbftMessage {
+func generateMessagesWithSender(count uint64, messageType proto.MessageType, sender common.Address) []*proto.IbftMessage {
 	messages := generateMessages(count, messageType)
 
 	for _, message := range messages {
@@ -103,7 +104,7 @@ func generateMessagesWithUniqueSender(count uint64, messageType proto.MessageTyp
 	messages := generateMessages(count, messageType)
 
 	for index, message := range messages {
-		message.From = []byte(fmt.Sprintf("node %d", index))
+		message.From = common.BytesToAddress([]byte(fmt.Sprintf("node %d", index)))
 	}
 
 	return messages
@@ -174,7 +175,7 @@ func generateFilledRCMessages(
 			Height: 0,
 			Round:  1,
 		}
-		message.From = []byte(fmt.Sprintf("node %d", index+1))
+		message.From = common.BytesToAddress([]byte(fmt.Sprintf("node %d", index+1)))
 	}
 
 	lastPreparedCertificate := &proto.PreparedCertificate{
@@ -183,7 +184,7 @@ func generateFilledRCMessages(
 				Height: 0,
 				Round:  1,
 			},
-			From: []byte("unique node"),
+			From: common.BytesToAddress([]byte("unique node")),
 			Type: proto.MessageType_PREPREPARE,
 			Payload: &proto.IbftMessage_PreprepareData{
 				PreprepareData: &proto.PrePrepareMessage{
@@ -236,8 +237,8 @@ func TestRunNewRound_Proposer(t *testing.T) {
 					}
 				}}
 				backend = mockBackend{
-					idFn: func() []byte { return nil },
-					isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+					idFn: func() common.Address { return common.Address{} },
+					isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 						return true
 					},
 					buildProposalFn: func(_ uint64) []byte {
@@ -328,8 +329,8 @@ func TestRunNewRound_Proposer(t *testing.T) {
 					}
 				}}
 				backend = mockBackend{
-					idFn: func() []byte { return nil },
-					isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+					idFn: func() common.Address { return common.Address{} },
+					isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 						return true
 					},
 					getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
@@ -448,7 +449,7 @@ func TestRunNewRound_Proposer(t *testing.T) {
 					},
 				}
 
-				message.From = []byte(fmt.Sprintf("node %d", index+1))
+				message.From = common.BytesToAddress([]byte(fmt.Sprintf("node %d", index+1)))
 			}
 
 			setRoundForMessages(roundChangeMessages, 1)
@@ -464,7 +465,7 @@ func TestRunNewRound_Proposer(t *testing.T) {
 						Height: 0,
 						Round:  0,
 					},
-					From: []byte("unique node"),
+					From: common.BytesToAddress([]byte("unique node")),
 					Type: proto.MessageType_PREPREPARE,
 					Payload: &proto.IbftMessage_PreprepareData{
 						PreprepareData: &proto.PrePrepareMessage{
@@ -478,7 +479,7 @@ func TestRunNewRound_Proposer(t *testing.T) {
 			}
 
 			var (
-				proposerID                               = []byte("unique node")
+				proposerID                               = common.BytesToAddress([]byte("unique node"))
 				multicastedPreprepare *proto.IbftMessage = nil
 				multicastedPrepare    *proto.IbftMessage = nil
 				proposal                                 = []byte("proposal")
@@ -495,9 +496,9 @@ func TestRunNewRound_Proposer(t *testing.T) {
 					}
 				}}
 				backend = mockBackend{
-					idFn: func() []byte { return proposerID },
-					isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-						return bytes.Equal(proposerID, proposer)
+					idFn: func() common.Address { return proposerID },
+					isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+						return proposerID == proposer
 					},
 					getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
 					buildProposalFn: func(_ uint64) []byte {
@@ -606,7 +607,7 @@ func TestRunNewRound_Validator_Zero(t *testing.T) {
 	ctx, cancelFn := context.WithCancel(context.Background())
 
 	var (
-		proposer                              = []byte("proposer")
+		proposer                              = common.BytesToAddress([]byte("proposer"))
 		multicastedPrepare *proto.IbftMessage = nil
 		notifyCh                              = make(chan uint64, 1)
 
@@ -619,8 +620,8 @@ func TestRunNewRound_Validator_Zero(t *testing.T) {
 			},
 		}
 		backend = mockBackend{
-			idFn: func() []byte {
-				return []byte("non proposer")
+			idFn: func() common.Address {
+				return common.BytesToAddress([]byte("non proposer"))
 			},
 			getVotingPowerFn: testCommonGetVotingPowertFnForCnt(1),
 			buildPrepareMessageFn: func(proposal []byte, view *proto.View) *proto.IbftMessage {
@@ -634,8 +635,8 @@ func TestRunNewRound_Validator_Zero(t *testing.T) {
 					},
 				}
 			},
-			isProposerFn: func(from []byte, _, _ uint64) bool {
-				return bytes.Equal(from, proposer)
+			isProposerFn: func(from common.Address, _, _ uint64) bool {
+				return from == proposer
 			},
 			isValidProposalFn: func(_ []byte) bool {
 				return true
@@ -702,7 +703,7 @@ func TestRunNewRound_Validator_NonZero(t *testing.T) {
 	t.Parallel()
 
 	quorum := uint64(4)
-	proposer := []byte("proposer")
+	proposer := common.BytesToAddress([]byte("proposer"))
 	round := uint64(1)
 
 	roundMessage := newCorrectRoundMessage(round)
@@ -790,8 +791,8 @@ func TestRunNewRound_Validator_NonZero(t *testing.T) {
 					},
 				}
 				backend = mockBackend{
-					idFn: func() []byte {
-						return []byte("non proposer")
+					idFn: func() common.Address {
+						return common.BytesToAddress([]byte("non proposer"))
 					},
 					getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
 					buildPrepareMessageFn: func(proposal []byte, view *proto.View) *proto.IbftMessage {
@@ -805,8 +806,8 @@ func TestRunNewRound_Validator_NonZero(t *testing.T) {
 							},
 						}
 					},
-					isProposerFn: func(from []byte, _, _ uint64) bool {
-						return bytes.Equal(from, proposer)
+					isProposerFn: func(from common.Address, _, _ uint64) bool {
+						return from == proposer
 					},
 					isValidProposalFn: func(_ []byte) bool {
 						return true
@@ -929,7 +930,7 @@ func TestRunPrepare(t *testing.T) {
 											ProposalHash: correctRoundMessage.hash,
 										},
 									},
-									From: []byte("node 0"),
+									From: common.BytesToAddress([]byte("node 0")),
 								},
 							},
 							isValid,
@@ -985,7 +986,7 @@ func TestRunCommit(t *testing.T) {
 			var (
 				wg sync.WaitGroup
 
-				signer                                           = []byte("node 0")
+				signer                                           = common.BytesToAddress([]byte("node 0"))
 				insertedProposal       []byte                    = nil
 				insertedCommittedSeals []*messages.CommittedSeal = nil
 				committedSeals                                   = []*messages.CommittedSeal{
@@ -1328,8 +1329,8 @@ func TestIBFT_MoveToNewRound(t *testing.T) {
 func TestIBFT_FutureProposal(t *testing.T) {
 	t.Parallel()
 
-	nodeID := []byte("node ID")
-	proposer := []byte("proposer")
+	nodeID := common.BytesToAddress([]byte("node ID"))
+	proposer := common.BytesToAddress([]byte("proposer"))
 	quorum := uint64(4)
 
 	generateEmptyRCMessages := func(count uint64, round uint64) []*proto.IbftMessage {
@@ -1425,10 +1426,10 @@ func TestIBFT_FutureProposal(t *testing.T) {
 
 				log     = mockLogger{}
 				backend = mockBackend{
-					isProposerFn: func(id []byte, _ uint64, _ uint64) bool {
-						return !bytes.Equal(id, nodeID)
+					isProposerFn: func(id common.Address, _ uint64, _ uint64) bool {
+						return id != nodeID
 					},
-					idFn: func() []byte {
+					idFn: func() common.Address {
 						return nodeID
 					},
 					isValidProposalHashFn: func(p *proto.Proposal, hash []byte) bool {
@@ -1633,7 +1634,7 @@ func TestIBFT_ValidPC(t *testing.T) {
 
 		var (
 			quorum = uint64(4)
-			sender = []byte("node x")
+			sender = common.BytesToAddress([]byte("node x"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
@@ -1660,7 +1661,7 @@ func TestIBFT_ValidPC(t *testing.T) {
 
 		var (
 			quorum = uint64(4)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
@@ -1691,7 +1692,7 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
@@ -1727,14 +1728,14 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return !bytes.Equal(proposer, sender)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer != sender
 				},
 			}
 		)
@@ -1769,14 +1770,14 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(2)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return !bytes.Equal(proposer, sender)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer != sender
 				},
 			}
 		)
@@ -1812,14 +1813,14 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return !bytes.Equal(proposer, sender)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer != sender
 				},
 			}
 		)
@@ -1851,18 +1852,18 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, sender)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == sender
 				},
 				IsValidValidatorFn: func(message *proto.IbftMessage) bool {
 					// One of the messages will be invalid
-					return !bytes.Equal(message.From, []byte("node 1"))
+					return message.From != common.BytesToAddress([]byte("node 1"))
 				},
 			}
 		)
@@ -1894,18 +1895,18 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, sender)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == sender
 				},
 				IsValidValidatorFn: func(message *proto.IbftMessage) bool {
 					// Proposer is invalid
-					return !bytes.Equal(message.From, sender)
+					return message.From != sender
 				},
 			}
 		)
@@ -1937,13 +1938,13 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
 					return true
 				},
 			}
@@ -1976,14 +1977,14 @@ func TestIBFT_ValidPC(t *testing.T) {
 		var (
 			quorum = uint64(4)
 			rLimit = uint64(1)
-			sender = []byte("unique node")
+			sender = common.BytesToAddress([]byte("unique node"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, sender)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == sender
 				},
 				IsValidValidatorFn: func(message *proto.IbftMessage) bool {
 					return true
@@ -2023,7 +2024,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			log     = mockLogger{}
 			backend = mockBackend{
-				isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+				isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 					return false
 				},
 			}
@@ -2057,7 +2058,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			log     = mockLogger{}
 			backend = mockBackend{
-				isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+				isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 					return true
 				},
 				isValidProposalFn: func(_ []byte) bool {
@@ -2097,7 +2098,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 				isValidProposalHashFn: func(_ *proto.Proposal, _ []byte) bool {
 					return false
 				},
-				isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+				isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 					return true
 				},
 			}
@@ -2131,7 +2132,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			log     = mockLogger{}
 			backend = mockBackend{
-				isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+				isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 					return true
 				},
 			}
@@ -2165,16 +2166,16 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		var (
 			quorum = uint64(4)
-			self   = []byte("node id")
+			self   = common.BytesToAddress([]byte("node id"))
 
 			log       = mockLogger{}
 			transport = mockTransport{}
 			backend   = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return self
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return !bytes.Equal(proposer, self)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer != self
 				},
 			}
 		)
@@ -2189,7 +2190,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		// Make sure all rcc are from same node
 		messages := generateMessages(quorum, proto.MessageType_ROUND_CHANGE)
 		for _, msg := range messages {
-			msg.From = []byte("non unique node id")
+			msg.From = common.BytesToAddress([]byte("non unique node id"))
 		}
 
 		proposal := &proto.IbftMessage{
@@ -2218,7 +2219,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				isProposerFn: func(_ []byte, _ uint64, _ uint64) bool {
+				isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
 					return true
 				},
 				getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
@@ -2255,20 +2256,20 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		var (
 			quorum     = uint64(4)
-			id         = []byte("node id")
-			uniqueNode = []byte("unique node")
+			id         = common.BytesToAddress([]byte("node id"))
+			uniqueNode = common.BytesToAddress([]byte("unique node"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					if bytes.Equal(proposer, uniqueNode) {
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					if proposer == uniqueNode {
 						return true
 					}
 
-					return bytes.Equal(proposer, id)
+					return proposer == id
 				},
 			}
 			transport = mockTransport{}
@@ -2304,15 +2305,15 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		var (
 			quorum = uint64(4)
-			id     = []byte("node id")
+			id     = common.BytesToAddress([]byte("node id"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, id)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == id
 				},
 			}
 			transport = mockTransport{}
@@ -2348,20 +2349,20 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			quorum     = uint64(4)
 			round      = uint64(1)
-			id         = []byte("node id")
-			uniqueNode = []byte("unique node")
+			id         = common.BytesToAddress([]byte("node id"))
+			uniqueNode = common.BytesToAddress([]byte("unique node"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					if bytes.Equal(proposer, uniqueNode) {
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					if proposer == uniqueNode {
 						return true
 					}
 
-					return bytes.Equal(proposer, id)
+					return proposer == id
 				},
 			}
 			transport = mockTransport{}
@@ -2398,16 +2399,16 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			quorum     = uint64(4)
 			round      = uint64(1)
-			id         = []byte("node id")
-			uniqueNode = []byte("unique node")
+			id         = common.BytesToAddress([]byte("node id"))
+			uniqueNode = common.BytesToAddress([]byte("unique node"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, uniqueNode)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == uniqueNode
 				},
 			}
 			transport = mockTransport{}
@@ -2420,7 +2421,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		for idx := 0; idx < int(quorum); idx++ {
 			roundChangeMessages = append(roundChangeMessages, &proto.IbftMessage{
-				From: []byte(fmt.Sprintf("node%d", idx)),
+				From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", idx))),
 				View: &proto.View{
 					Height: 0,
 					Round:  round,
@@ -2431,7 +2432,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		}
 
 		roundChangeMessages = append(roundChangeMessages, &proto.IbftMessage{
-			From: []byte(fmt.Sprintf("node%d", quorum)),
+			From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", quorum))),
 			View: &proto.View{
 				Height: 0,
 				Round:  0,
@@ -2469,16 +2470,16 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			quorum     = uint64(4)
 			round      = uint64(1)
-			id         = []byte("node id")
-			uniqueNode = []byte("unique node")
+			id         = common.BytesToAddress([]byte("node id"))
+			uniqueNode = common.BytesToAddress([]byte("unique node"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, uniqueNode)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == uniqueNode
 				},
 			}
 			transport = mockTransport{}
@@ -2491,7 +2492,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		for idx := range roundChangeMessages {
 			roundChangeMessages[idx] = &proto.IbftMessage{
-				From: []byte(fmt.Sprintf("node%d", idx)),
+				From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", idx))),
 				View: &proto.View{
 					Height: 100, // wrong height
 					Round:  round,
@@ -2530,16 +2531,16 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			quorum     = uint64(4)
 			round      = uint64(1)
-			id         = []byte("node id")
-			uniqueNode = []byte("unique node")
+			id         = common.BytesToAddress([]byte("node id"))
+			uniqueNode = common.BytesToAddress([]byte("unique node"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, uniqueNode)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == uniqueNode
 				},
 			}
 			transport = mockTransport{}
@@ -2552,7 +2553,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		for idx := range roundChangeMessages {
 			roundChangeMessages[idx] = &proto.IbftMessage{
-				From: []byte(fmt.Sprintf("node%d", idx)),
+				From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", idx))),
 				View: &proto.View{
 					Height: 0,
 					Round:  round + 1, // wrong round
@@ -2591,20 +2592,20 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			quorum       = uint64(4)
 			round        = uint64(1)
-			id           = []byte("node id")
-			uniqueNode   = []byte("unique node")
-			nonValidator = []byte("non validator")
+			id           = common.BytesToAddress([]byte("node id"))
+			uniqueNode   = common.BytesToAddress([]byte("unique node"))
+			nonValidator = common.BytesToAddress([]byte("non validator"))
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-					return bytes.Equal(proposer, uniqueNode)
+				isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+					return proposer == uniqueNode
 				},
 				IsValidValidatorFn: func(m *proto.IbftMessage) bool {
-					return !bytes.Equal(m.From, nonValidator)
+					return m.From != nonValidator
 				},
 			}
 			transport = mockTransport{}
@@ -2617,7 +2618,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		for idx := 0; idx < int(quorum); idx++ {
 			roundChangeMessages = append(roundChangeMessages, &proto.IbftMessage{
-				From: []byte(fmt.Sprintf("node%d", idx)),
+				From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", idx))),
 				View: &proto.View{
 					Height: 0,
 					Round:  round,
@@ -2666,14 +2667,14 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			quorum    = uint64(4)
 			round     = uint64(2)
-			id        = []byte("node id")
-			proposers = [][]byte{
-				[]byte("proposer 0"), // proposer for round 0
-				[]byte("proposer 1"), // proposer for round 1
-				[]byte("proposer 2"), // proposer for round 2
+			id        = common.BytesToAddress([]byte("node id"))
+			proposers = []common.Address{
+				common.BytesToAddress([]byte("proposer 0")), // proposer for round 0
+				common.BytesToAddress([]byte("proposer 1")), // proposer for round 1
+				common.BytesToAddress([]byte("proposer 2")), // proposer for round 2
 			}
 
-			nonValidator = []byte("non validator")
+			nonValidator = common.BytesToAddress([]byte("non validator"))
 			rawProposal  = []byte("raw proposal")
 
 			hashFn = func(rawProposal []byte, round uint64) []byte {
@@ -2684,14 +2685,14 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 			log     = mockLogger{}
 			backend = mockBackend{
-				idFn: func() []byte {
+				idFn: func() common.Address {
 					return id
 				},
-				isProposerFn: func(proposer []byte, _ uint64, round uint64) bool {
-					return bytes.Equal(proposer, proposers[round])
+				isProposerFn: func(proposer common.Address, _ uint64, round uint64) bool {
+					return proposer == proposers[round]
 				},
 				IsValidValidatorFn: func(m *proto.IbftMessage) bool {
-					return !bytes.Equal(m.From, nonValidator)
+					return m.From != nonValidator
 				},
 				isValidProposalHashFn: func(p *proto.Proposal, b []byte) bool {
 					return bytes.Equal(
@@ -2743,7 +2744,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		previousPrepares := make([]*proto.IbftMessage, quorum)
 		for idx := range previousPrepares {
 			previousPrepares[idx] = &proto.IbftMessage{
-				From: []byte(fmt.Sprintf("node%d", idx)),
+				From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", idx))),
 				View: views[0],
 				Type: proto.MessageType_PREPARE,
 				Payload: &proto.IbftMessage_PrepareData{
@@ -2759,7 +2760,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 
 		for idx := range roundChangeMessages {
 			roundChangeMessages[idx] = &proto.IbftMessage{
-				From: []byte(fmt.Sprintf("node%d", idx)),
+				From: common.BytesToAddress([]byte(fmt.Sprintf("node%d", idx))),
 				View: views[2],
 				Type: proto.MessageType_ROUND_CHANGE,
 				Payload: &proto.IbftMessage_RoundChangeData{
@@ -2817,8 +2818,8 @@ func TestIBFT_WatchForFutureRCC(t *testing.T) {
 		transport = mockTransport{}
 		backend   = mockBackend{
 			getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-			isProposerFn: func(proposer []byte, _ uint64, _ uint64) bool {
-				return bytes.Equal(proposer, []byte("unique node"))
+			isProposerFn: func(proposer common.Address, _ uint64, _ uint64) bool {
+				return proposer == common.BytesToAddress([]byte("unique node"))
 			},
 		}
 		messages = mockMessages{
@@ -3126,7 +3127,7 @@ func TestIBFT_AddMessage(t *testing.T) {
 		validMsgType = proto.MessageType_PREPREPARE
 	)
 
-	var validSender = []byte("node 0")
+	var validSender = common.BytesToAddress([]byte("node 0"))
 
 	executeTest := func(
 		msg *proto.IbftMessage, shouldAddMessageCalled, shouldSignalEventCalled bool, quorumSize uint64) {
@@ -3140,7 +3141,7 @@ func TestIBFT_AddMessage(t *testing.T) {
 		)
 
 		backend.IsValidValidatorFn = func(m *proto.IbftMessage) bool {
-			return bytes.Equal(m.From, validSender)
+			return m.From == validSender
 		}
 
 		backend.getVotingPowerFn = testCommonGetVotingPowertFnForCnt(quorumSize)

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"pgregory.net/rapid"
 
@@ -239,16 +240,13 @@ func TestProperty(t *testing.T) {
 			backend.getVotingPowerFn = testCommonGetVotingPowertFn(nodes)
 
 			// Make sure the node ID is properly relayed
-			backend.idFn = func() []byte {
+			backend.idFn = func() common.Address {
 				return nodes[nodeIndex]
 			}
 
 			// Make sure the only proposer is picked using Round Robin
-			backend.isProposerFn = func(from []byte, height, round uint64) bool {
-				return bytes.Equal(
-					from,
-					nodes[getProposer(height, round, setup.nodes)],
-				)
+			backend.isProposerFn = func(from common.Address, height, round uint64) bool {
+				return from == nodes[getProposer(height, round, setup.nodes)]
 			}
 
 			// Make sure the proposal is valid if it matches what node 0 proposed

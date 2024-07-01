@@ -3,6 +3,7 @@ package messages
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
@@ -25,7 +26,7 @@ func TestMessages_ExtractCommittedSeals(t *testing.T) {
 					CommittedSeal: committedSeal,
 				},
 			},
-			From: []byte(signer),
+			From: common.BytesToAddress([]byte(signer)),
 		}
 	}
 
@@ -37,7 +38,7 @@ func TestMessages_ExtractCommittedSeals(t *testing.T) {
 
 	createCommittedSeal := func(from string) *CommittedSeal {
 		return &CommittedSeal{
-			Signer:    []byte(from),
+			Signer:    common.BytesToAddress([]byte(from)),
 			Signature: committedSeal,
 		}
 	}
@@ -427,10 +428,10 @@ func TestMessages_HasUniqueSenders(t *testing.T) {
 			"non unique senders",
 			[]*proto.IbftMessage{
 				{
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 			},
 			false,
@@ -439,10 +440,10 @@ func TestMessages_HasUniqueSenders(t *testing.T) {
 			"unique senders",
 			[]*proto.IbftMessage{
 				{
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			true,
@@ -486,7 +487,7 @@ func TestMessages_HaveSameProposalHash(t *testing.T) {
 						Height: 1,
 						Round:  1,
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 			},
 			false,
@@ -505,7 +506,7 @@ func TestMessages_HaveSameProposalHash(t *testing.T) {
 						Height: 1,
 						Round:  1,
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					Type: proto.MessageType_PREPARE,
@@ -518,7 +519,7 @@ func TestMessages_HaveSameProposalHash(t *testing.T) {
 						Height: 1,
 						Round:  1,
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			false,
@@ -537,7 +538,7 @@ func TestMessages_HaveSameProposalHash(t *testing.T) {
 						Height: 1,
 						Round:  1,
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					Type: proto.MessageType_PREPARE,
@@ -550,7 +551,7 @@ func TestMessages_HaveSameProposalHash(t *testing.T) {
 						Height: 1,
 						Round:  1,
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			true,
@@ -603,7 +604,7 @@ func TestMessages_AllHaveLowerRond(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					View: &proto.View{
@@ -616,7 +617,7 @@ func TestMessages_AllHaveLowerRond(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			round,
@@ -636,7 +637,7 @@ func TestMessages_AllHaveLowerRond(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					View: &proto.View{
@@ -649,7 +650,7 @@ func TestMessages_AllHaveLowerRond(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			round,
@@ -669,7 +670,7 @@ func TestMessages_AllHaveLowerRond(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					View: &proto.View{
@@ -682,7 +683,7 @@ func TestMessages_AllHaveLowerRond(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			2,
@@ -737,7 +738,7 @@ func TestMessages_AllHaveSameHeight(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					View: &proto.View{
@@ -749,7 +750,7 @@ func TestMessages_AllHaveSameHeight(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			false,
@@ -768,7 +769,7 @@ func TestMessages_AllHaveSameHeight(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 1"),
+					From: common.BytesToAddress([]byte("node 1")),
 				},
 				{
 					View: &proto.View{
@@ -781,7 +782,7 @@ func TestMessages_AllHaveSameHeight(t *testing.T) {
 							ProposalHash: proposalHash,
 						},
 					},
-					From: []byte("node 2"),
+					From: common.BytesToAddress([]byte("node 2")),
 				},
 			},
 			true,

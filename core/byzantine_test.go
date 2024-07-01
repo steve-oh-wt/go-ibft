@@ -1,11 +1,11 @@
 package core
 
 import (
-	"bytes"
 	"testing"
 	"time"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -362,15 +362,12 @@ func createBadHashPrepareMessageFn(node *node) buildPrepareMessageDelegate {
 }
 
 func createForcedRCProposerFn(c *cluster) isProposerDelegate {
-	return func(from []byte, height uint64, round uint64) bool {
+	return func(from common.Address, height uint64, round uint64) bool {
 		if round == 0 {
 			return false
 		}
 
-		return bytes.Equal(
-			from,
-			c.addresses()[int(round)%len(c.addresses())],
-		)
+		return from == c.addresses()[int(round)%len(c.addresses())]
 	}
 }
 

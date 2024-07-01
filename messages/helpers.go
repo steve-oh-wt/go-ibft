@@ -5,16 +5,18 @@ import (
 	"errors"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
 	// ErrWrongCommitMessageType is an error indicating wrong type in commit messages
 	ErrWrongCommitMessageType = errors.New("wrong type message is included in COMMIT messages")
+	_                         = common.HexToAddress("0x1234")
 )
 
 // CommittedSeal Validator proof of signing a committed proposal
 type CommittedSeal struct {
-	Signer    []byte
+	Signer    common.Address
 	Signature []byte
 }
 
@@ -151,10 +153,10 @@ func HasUniqueSenders(messages []*proto.IbftMessage) bool {
 		return false
 	}
 
-	senderMap := make(map[string]struct{}, len(messages))
+	senderMap := make(map[common.Address]struct{}, len(messages))
 
 	for _, message := range messages {
-		key := string(message.From)
+		key := message.From
 		if _, exists := senderMap[key]; exists {
 			return false
 		}
@@ -172,7 +174,7 @@ func AreValidPCMessages(messages []*proto.IbftMessage, height uint64, roundLimit
 	}
 
 	round := messages[0].View.Round
-	senderMap := make(map[string]struct{})
+	senderMap := make(map[common.Address]struct{})
 
 	var hash []byte
 
@@ -201,7 +203,7 @@ func AreValidPCMessages(messages []*proto.IbftMessage, height uint64, roundLimit
 		}
 
 		// all messages must have unique senders
-		key := string(message.From)
+		key := message.From
 		if _, exists := senderMap[key]; exists {
 			return false
 		}

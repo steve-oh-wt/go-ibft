@@ -5,6 +5,7 @@ package core
 import (
 	"github.com/0xPolygon/go-ibft/messages"
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // MessageConstructor defines a message constructor interface
@@ -45,7 +46,7 @@ type Verifier interface {
 	IsValidValidator(msg *proto.IbftMessage) bool
 
 	// IsProposer checks if the passed in ID is the Proposer for current view (sequence, round)
-	IsProposer(id []byte, height, round uint64) bool
+	IsProposer(id common.Address, height, round uint64) bool
 
 	// IsValidProposalHash checks if the hash matches the proposal
 	IsValidProposalHash(proposal *proto.Proposal, hash []byte) bool
@@ -81,5 +82,5 @@ type Backend interface {
 	InsertProposal(proposal *proto.Proposal, committedSeals []*messages.CommittedSeal)
 
 	// ID returns the validator's ID
-	ID() []byte
+	ID() common.Address
 }

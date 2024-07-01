@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/0xPolygon/go-ibft/messages"
@@ -14,11 +15,11 @@ import (
 )
 
 // generateNodeAddresses generates dummy node addresses
-func generateNodeAddresses(count uint64) [][]byte {
-	addresses := make([][]byte, count)
+func generateNodeAddresses(count uint64) []common.Address {
+	addresses := make([]common.Address, count)
 
 	for index := range addresses {
-		addresses[index] = []byte(fmt.Sprintf("node %d", index))
+		addresses[index] = common.BytesToAddress([]byte(fmt.Sprintf("node %d", index)))
 	}
 
 	return addresses
@@ -29,7 +30,7 @@ func buildBasicPreprepareMessage(
 	rawProposal []byte,
 	proposalHash []byte,
 	certificate *proto.RoundChangeCertificate,
-	from []byte,
+	from common.Address,
 	view *proto.View,
 ) *proto.IbftMessage {
 	return &proto.IbftMessage{
@@ -51,8 +52,8 @@ func buildBasicPreprepareMessage(
 
 // buildBasicPrepareMessage builds a simple prepare message
 func buildBasicPrepareMessage(
-	proposalHash,
-	from []byte,
+	proposalHash []byte,
+	from common.Address,
 	view *proto.View,
 ) *proto.IbftMessage {
 	return &proto.IbftMessage{
@@ -70,8 +71,8 @@ func buildBasicPrepareMessage(
 // buildBasicCommitMessage builds a simple commit message
 func buildBasicCommitMessage(
 	proposalHash,
-	committedSeal,
-	from []byte,
+	committedSeal []byte,
+	from common.Address,
 	view *proto.View,
 ) *proto.IbftMessage {
 	return &proto.IbftMessage{
@@ -92,7 +93,7 @@ func buildBasicRoundChangeMessage(
 	proposal *proto.Proposal,
 	certificate *proto.PreparedCertificate,
 	view *proto.View,
-	from []byte,
+	from common.Address,
 ) *proto.IbftMessage {
 	return &proto.IbftMessage{
 		View: view,
@@ -156,13 +157,13 @@ func TestConsensus_ValidFlow(t *testing.T) {
 		backend.getVotingPowerFn = testCommonGetVotingPowertFn(nodes)
 
 		// Make sure the node ID is properly relayed
-		backend.idFn = func() []byte {
+		backend.idFn = func() common.Address {
 			return nodes[nodeIndex]
 		}
 
 		// Make sure the only proposer is node 0
-		backend.isProposerFn = func(from []byte, _ uint64, _ uint64) bool {
-			return bytes.Equal(from, nodes[0])
+		backend.isProposerFn = func(from common.Address, _ uint64, _ uint64) bool {
+			return from == nodes[0]
 		}
 
 		// Make sure the proposal is valid if it matches what node 0 proposed
@@ -291,15 +292,15 @@ func TestConsensus_InvalidBlock(t *testing.T) {
 		backend.getVotingPowerFn = testCommonGetVotingPowertFn(nodes)
 
 		// Make sure the node ID is properly relayed
-		backend.idFn = func() []byte {
+		backend.idFn = func() common.Address {
 			return nodes[nodeIndex]
 		}
 
 		// Make sure the only proposer is node 0
-		backend.isProposerFn = func(from []byte, _ uint64, round uint64) bool {
+		backend.isProposerFn = func(from common.Address, _ uint64, round uint64) bool {
 			// Node 0 is the proposer for round 0
 			// Node 1 is the proposer for round 1
-			return bytes.Equal(from, nodes[round])
+			return from == nodes[round]
 		}
 
 		// Make sure the proposal is valid if it matches what node 0 proposed

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
 
@@ -22,7 +23,7 @@ func generateRandomMessages(
 	for index := 0; index < count; index++ {
 		for _, messageType := range messageTypes {
 			message := &proto.IbftMessage{
-				From: []byte(strconv.Itoa(index)),
+				From: common.BytesToAddress([]byte(strconv.Itoa(index))),
 				View: view,
 				Type: messageType,
 			}
@@ -119,7 +120,7 @@ func TestMessages_AddDuplicates(t *testing.T) {
 	)
 
 	for _, message := range randomMessages {
-		message.From = []byte(commonSender)
+		message.From = common.BytesToAddress([]byte(commonSender))
 		messages.AddMessage(message)
 	}
 

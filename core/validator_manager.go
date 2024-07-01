@@ -1,12 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"errors"
 	"math/big"
 	"sync"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 // ValidatorBackend defines interface that has GetVotingPower
 type ValidatorBackend interface {
 	// GetVotingPowers returns map of validators addresses and their voting powers for the specified height.
-	GetVotingPowers(height uint64) (map[string]*big.Int, error)
+	GetVotingPowers(height uint64) (map[common.Address]*big.Int, error)
 }
 
 // ValidatorManager keeps voting power and other information about validators
@@ -28,7 +28,7 @@ type ValidatorManager struct {
 
 	// validatorsVotingPower is a map of the validator addresses on their voting power for
 	// the height specified in the current View
-	validatorsVotingPower map[string]*big.Int
+	validatorsVotingPower map[common.Address]*big.Int
 
 	backend ValidatorBackend
 
@@ -58,7 +58,7 @@ func (vm *ValidatorManager) Init(height uint64) error {
 
 // setCurrentVotingPower sets the current total voting power and quorum size
 // based on current validators voting power
-func (vm *ValidatorManager) setCurrentVotingPower(validatorsVotingPower map[string]*big.Int) error {
+func (vm *ValidatorManager) setCurrentVotingPower(validatorsVotingPower map[common.Address]*big.Int) error {
 	vm.vpLock.Lock()
 	defer vm.vpLock.Unlock()
 
@@ -74,7 +74,7 @@ func (vm *ValidatorManager) setCurrentVotingPower(validatorsVotingPower map[stri
 }
 
 // HasQuorum provides information on whether messages have reached the quorum
-func (vm *ValidatorManager) HasQuorum(sendersAddrs map[string]struct{}) bool {
+func (vm *ValidatorManager) HasQuorum(sendersAddrs map[common.Address]struct{}) bool {
 	vm.vpLock.RLock()
 	defer vm.vpLock.RUnlock()
 
@@ -109,18 +109,18 @@ func (vm *ValidatorManager) HasPrepareQuorum(stateName stateType, proposalMessag
 	}
 
 	proposerAddress := proposalMessage.From
-	sendersAddressesMap := map[string]struct{}{
-		string(proposerAddress): {},
+	sendersAddressesMap := map[common.Address]struct{}{
+		proposerAddress: {},
 	}
 
 	for _, message := range msgs {
-		if bytes.Equal(message.From, proposerAddress) {
+		if message.From == proposerAddress {
 			vm.log.Error("HasPrepareQuorum - proposer is among signers but it is not expected to be")
 
 			return false
 		}
 
-		sendersAddressesMap[string(message.From)] = struct{}{}
+		sendersAddressesMap[message.From] = struct{}{}
 	}
 
 	return vm.HasQuorum(sendersAddressesMap)
@@ -134,7 +134,7 @@ func calculateQuorum(totalVotingPower *big.Int) *big.Int {
 	return quorum.Div(quorum, big.NewInt(3)).Add(quorum, big.NewInt(1))
 }
 
-func calculateTotalVotingPower(validatorsVotingPower map[string]*big.Int) *big.Int {
+func calculateTotalVotingPower(validatorsVotingPower map[common.Address]*big.Int) *big.Int {
 	totalVotingPower := big.NewInt(0)
 	for _, validatorVotingPower := range validatorsVotingPower {
 		totalVotingPower.Add(totalVotingPower, validatorVotingPower)
@@ -144,11 +144,11 @@ func calculateTotalVotingPower(validatorsVotingPower map[string]*big.Int) *big.I
 }
 
 // convertMessageToAddressSet converts messages slice to addresses map
-func convertMessageToAddressSet(messages []*proto.IbftMessage) map[string]struct{} {
-	result := make(map[string]struct{}, len(messages))
+func convertMessageToAddressSet(messages []*proto.IbftMessage) map[common.Address]struct{} {
+	result := make(map[common.Address]struct{}, len(messages))
 
 	for _, x := range messages {
-		result[string(x.From)] = struct{}{}
+		result[x.From] = struct{}{}
 	}
 
 	return result

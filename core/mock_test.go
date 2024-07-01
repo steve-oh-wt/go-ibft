@@ -10,6 +10,7 @@ import (
 
 	"github.com/0xPolygon/go-ibft/messages"
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -43,7 +44,7 @@ func newCorrectRoundMessage(round uint64) roundMessage {
 // Define delegation methods
 type isValidBlockDelegate func([]byte) bool
 type IsValidValidatorDelegate func(*proto.IbftMessage) bool
-type isProposerDelegate func([]byte, uint64, uint64) bool
+type isProposerDelegate func(common.Address, uint64, uint64) bool
 type buildEthereumBlockDelegate func(uint64) []byte
 type isValidProposalHashDelegate func(*proto.Proposal, []byte) bool
 type isValidCommittedSealDelegate func([]byte, *messages.CommittedSeal) bool
@@ -62,8 +63,8 @@ type buildRoundChangeMessageDelegate func(
 ) *proto.IbftMessage
 
 type insertProposalDelegate func(*proto.Proposal, []*messages.CommittedSeal)
-type idDelegate func() []byte
-type getVotingPowerDelegate func(uint64) (map[string]*big.Int, error)
+type idDelegate func() common.Address
+type getVotingPowerDelegate func(uint64) (map[common.Address]*big.Int, error)
 type viewNotificationDelegate func(*proto.View) error
 
 var _ Backend = &mockBackend{}
@@ -88,12 +89,12 @@ type mockBackend struct {
 	sequenceCancelledFn       viewNotificationDelegate
 }
 
-func (m mockBackend) ID() []byte {
+func (m mockBackend) ID() common.Address {
 	if m.idFn != nil {
 		return m.idFn()
 	}
 
-	return nil
+	return common.Address{}
 }
 
 func (m mockBackend) InsertProposal(proposal *proto.Proposal, committedSeals []*messages.CommittedSeal) {
@@ -118,7 +119,7 @@ func (m mockBackend) IsValidValidator(msg *proto.IbftMessage) bool {
 	return true
 }
 
-func (m mockBackend) IsProposer(id []byte, sequence, round uint64) bool {
+func (m mockBackend) IsProposer(id common.Address, sequence, round uint64) bool {
 	if m.isProposerFn != nil {
 		return m.isProposerFn(id, sequence, round)
 	}
@@ -197,12 +198,12 @@ func (m mockBackend) BuildRoundChangeMessage(
 	}
 }
 
-func (m mockBackend) GetVotingPowers(height uint64) (map[string]*big.Int, error) {
+func (m mockBackend) GetVotingPowers(height uint64) (map[common.Address]*big.Int, error) {
 	if m.getVotingPowerFn != nil {
 		return m.getVotingPowerFn(height)
 	}
 
-	return map[string]*big.Int{}, nil
+	return map[common.Address]*big.Int{}, nil
 }
 
 func (m mockBackend) RoundStarts(view *proto.View) error {

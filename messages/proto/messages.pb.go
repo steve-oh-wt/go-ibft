@@ -7,10 +7,12 @@
 package proto
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	"github.com/ethereum/go-ethereum/common"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -141,7 +143,7 @@ type IbftMessage struct {
 	// view is the current view for the message
 	View *View `protobuf:"bytes,1,opt,name=view,proto3" json:"view,omitempty"`
 	// from defines who is the message sender
-	From []byte `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	From common.Address  `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
 	// the signature of the sender, if any
 	Signature []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 	// type defines the message type
@@ -196,9 +198,9 @@ func (x *IbftMessage) GetView() *View {
 	return nil
 }
 
-func (x *IbftMessage) GetFrom() []byte {
+func (x *IbftMessage) GetFrom() *common.Address {
 	if x != nil {
-		return x.From
+		return &x.From
 	}
 	return nil
 }

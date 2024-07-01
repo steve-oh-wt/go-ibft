@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Messages contains the relevant messages for each view (height, round)
@@ -61,7 +62,7 @@ func (ms *Messages) AddMessage(message *proto.IbftMessage) {
 
 	// Append the message to the appropriate queue
 	messages := heightMsgMap.getViewMessages(message.View)
-	messages[string(message.From)] = message
+	messages[message.From] = message
 }
 
 // SignalEvent signals event
@@ -177,7 +178,7 @@ func (ms *Messages) GetValidMessages(
 
 	validMessages := make([]*proto.IbftMessage, 0)
 
-	invalidMessageKeys := make([]string, 0)
+	invalidMessageKeys := make([]common.Address, 0)
 	messages := ms.getProtoMessages(view, messageType)
 
 	for key, message := range messages {
@@ -293,7 +294,7 @@ type roundMessageMap map[uint64]protoMessages
 
 // protoMessages is the set of messages that circulate.
 // It contains a mapping between the sender and their messages to avoid duplicates
-type protoMessages map[string]*proto.IbftMessage
+type protoMessages map[common.Address]*proto.IbftMessage
 
 // getViewMessages fetches the message queue for the specified view (height + round).
 // It will initialize a new message array if it's not found

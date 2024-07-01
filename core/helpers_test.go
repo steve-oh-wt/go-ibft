@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 /*	HELPERS */
@@ -38,13 +39,13 @@ func isValidProposalHash(proposal *proto.Proposal, proposalHash []byte) bool {
 
 type node struct {
 	core      *IBFT
-	address   []byte
+	address   common.Address
 	offline   bool
 	faulty    bool
 	byzantine bool
 }
 
-func (n *node) addr() []byte {
+func (n *node) addr() common.Address {
 	return n.address
 }
 
@@ -202,8 +203,8 @@ func (c *cluster) progressToHeight(timeout time.Duration, height uint64) error {
 	return c.runSequences(ctx, height)
 }
 
-func (c *cluster) addresses() [][]byte {
-	addresses := make([][]byte, len(c.nodes))
+func (c *cluster) addresses() []common.Address {
+	addresses := make([]common.Address, len(c.nodes))
 	for i, node := range c.nodes {
 		addresses[i] = node.address
 	}
@@ -212,16 +213,13 @@ func (c *cluster) addresses() [][]byte {
 }
 
 func (c *cluster) isProposer(
-	from []byte,
+	from common.Address,
 	height,
 	round uint64,
 ) bool {
 	addrs := c.addresses()
 
-	return bytes.Equal(
-		from,
-		addrs[int(height+round)%len(addrs)],
-	)
+	return from == addrs[int(height+round)%len(addrs)]
 }
 
 func (c *cluster) gossip(msg *proto.IbftMessage) {
@@ -258,36 +256,36 @@ func (c *cluster) startN(num int) {
 	}
 }
 
-func testCommonGetVotingPowertFn(nodes [][]byte) func(u uint64) (map[string]*big.Int, error) {
-	return func(u uint64) (map[string]*big.Int, error) {
-		result := map[string]*big.Int{}
+func testCommonGetVotingPowertFn(nodes []common.Address) func(u uint64) (map[common.Address]*big.Int, error) {
+	return func(u uint64) (map[common.Address]*big.Int, error) {
+		result := map[common.Address]*big.Int{}
 
 		for _, x := range nodes {
-			result[string(x)] = big.NewInt(1)
+			result[x] = big.NewInt(1)
 		}
 
 		return result, nil
 	}
 }
 
-func testCommonGetVotingPowertFnForCnt(nodesCnt uint64) func(u uint64) (map[string]*big.Int, error) {
-	return func(u uint64) (map[string]*big.Int, error) {
-		result := map[string]*big.Int{}
+func testCommonGetVotingPowertFnForCnt(nodesCnt uint64) func(u uint64) (map[common.Address]*big.Int, error) {
+	return func(u uint64) (map[common.Address]*big.Int, error) {
+		result := map[common.Address]*big.Int{}
 
 		for i := 0; i < int(nodesCnt); i++ {
-			result[fmt.Sprintf("node %d", i)] = big.NewInt(1)
+			result[common.BytesToAddress([]byte(fmt.Sprintf("node %d", i)))] = big.NewInt(1)
 		}
 
 		return result, nil
 	}
 }
 
-func testCommonGetVotingPowertFnForNodes(nodes []*node) func(u uint64) (map[string]*big.Int, error) {
-	return func(u uint64) (map[string]*big.Int, error) {
-		result := map[string]*big.Int{}
+func testCommonGetVotingPowertFnForNodes(nodes []*node) func(u uint64) (map[common.Address]*big.Int, error) {
+	return func(u uint64) (map[common.Address]*big.Int, error) {
+		result := map[common.Address]*big.Int{}
 
 		for _, x := range nodes {
-			result[string(x.address)] = big.NewInt(1)
+			result[x.address] = big.NewInt(1)
 		}
 
 		return result, nil
