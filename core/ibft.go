@@ -1158,6 +1158,10 @@ func (i *IBFT) SetBaseRoundTimeout(baseRoundTimeout time.Duration) {
 	i.baseRoundTimeout = baseRoundTimeout
 }
 
+func (i *IBFT) GetRound() uint64 {
+	return i.state.getRound()
+}
+
 // validPC verifies that the prepared certificate is valid
 func (i *IBFT) validPC(
 	certificate *proto.PreparedCertificate,
