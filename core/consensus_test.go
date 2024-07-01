@@ -28,7 +28,7 @@ func generateNodeAddresses(count uint64) []common.Address {
 // buildBasicPreprepareMessage builds a simple preprepare message
 func buildBasicPreprepareMessage(
 	rawProposal []byte,
-	proposalHash []byte,
+	proposalHash common.Hash,
 	certificate *proto.RoundChangeCertificate,
 	from common.Address,
 	view *proto.View,
@@ -52,7 +52,7 @@ func buildBasicPreprepareMessage(
 
 // buildBasicPrepareMessage builds a simple prepare message
 func buildBasicPrepareMessage(
-	proposalHash []byte,
+	proposalHash common.Hash,
 	from common.Address,
 	view *proto.View,
 ) *proto.IbftMessage {
@@ -70,7 +70,7 @@ func buildBasicPrepareMessage(
 
 // buildBasicCommitMessage builds a simple commit message
 func buildBasicCommitMessage(
-	proposalHash,
+	proposalHash common.Hash,
 	committedSeal []byte,
 	from common.Address,
 	view *proto.View,
@@ -172,10 +172,10 @@ func TestConsensus_ValidFlow(t *testing.T) {
 		}
 
 		// Make sure the proposal hash matches
-		backend.isValidProposalHashFn = func(proposal *proto.Proposal, proposalHash []byte) bool {
+		backend.isValidProposalHashFn = func(proposal *proto.Proposal, proposalHash common.Hash) bool {
 			return bytes.Equal(proposal.GetRawProposal(), correctRoundMessage.proposal.GetRawProposal()) &&
 				proposal.Round == correctRoundMessage.proposal.Round &&
-				bytes.Equal(proposalHash, correctRoundMessage.hash)
+				proposalHash == correctRoundMessage.hash
 		}
 
 		// Make sure the preprepare message is built correctly
@@ -193,12 +193,12 @@ func TestConsensus_ValidFlow(t *testing.T) {
 		}
 
 		// Make sure the prepare message is built correctly
-		backend.buildPrepareMessageFn = func(proposal []byte, view *proto.View) *proto.IbftMessage {
+		backend.buildPrepareMessageFn = func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 			return buildBasicPrepareMessage(correctRoundMessage.hash, nodes[nodeIndex], view)
 		}
 
 		// Make sure the commit message is built correctly
-		backend.buildCommitMessageFn = func(proposal []byte, view *proto.View) *proto.IbftMessage {
+		backend.buildCommitMessageFn = func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 			return buildBasicCommitMessage(correctRoundMessage.hash, correctRoundMessage.seal, nodes[nodeIndex], view)
 		}
 
@@ -268,9 +268,9 @@ func TestConsensus_InvalidBlock(t *testing.T) {
 		[]byte("proposal 2"), // proposed by node 1
 	}
 
-	proposalHashes := [][]byte{
-		[]byte("proposal hash 1"), // for proposal 1
-		[]byte("proposal hash 2"), // for proposal 2
+	proposalHashes := []common.Hash{
+		common.BytesToHash([]byte("proposal hash 1")), // for proposal 1
+		common.BytesToHash([]byte("proposal hash 2")), // for proposal 2
 	}
 	committedSeal := []byte("seal")
 	numNodes := uint64(4)
@@ -311,12 +311,12 @@ func TestConsensus_InvalidBlock(t *testing.T) {
 		}
 
 		// Make sure the proposal hash matches
-		backend.isValidProposalHashFn = func(proposal *proto.Proposal, proposalHash []byte) bool {
+		backend.isValidProposalHashFn = func(proposal *proto.Proposal, proposalHash common.Hash) bool {
 			if bytes.Equal(proposal.RawProposal, proposals[0]) {
-				return bytes.Equal(proposalHash, proposalHashes[0])
+				return proposalHash == proposalHashes[0]
 			}
 
-			return bytes.Equal(proposalHash, proposalHashes[1])
+			return proposalHash == proposalHashes[1]
 		}
 
 		// Make sure the preprepare message is built correctly
@@ -335,12 +335,12 @@ func TestConsensus_InvalidBlock(t *testing.T) {
 		}
 
 		// Make sure the prepare message is built correctly
-		backend.buildPrepareMessageFn = func(proposal []byte, view *proto.View) *proto.IbftMessage {
+		backend.buildPrepareMessageFn = func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 			return buildBasicPrepareMessage(proposalHashes[view.Round], nodes[nodeIndex], view)
 		}
 
 		// Make sure the commit message is built correctly
-		backend.buildCommitMessageFn = func(proposal []byte, view *proto.View) *proto.IbftMessage {
+		backend.buildCommitMessageFn = func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 			return buildBasicCommitMessage(proposalHashes[view.Round], committedSeal, nodes[nodeIndex], view)
 		}
 

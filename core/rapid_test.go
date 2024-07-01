@@ -19,7 +19,7 @@ import (
 type roundMessage struct {
 	proposal *proto.Proposal
 	seal     []byte
-	hash     []byte
+	hash     common.Hash
 }
 
 // mockInsertedProposals keeps track of inserted proposals for a cluster
@@ -257,11 +257,11 @@ func TestProperty(t *testing.T) {
 			}
 
 			// Make sure the proposal hash matches
-			backend.isValidProposalHashFn = func(proposal *proto.Proposal, hash []byte) bool {
+			backend.isValidProposalHashFn = func(proposal *proto.Proposal, hash common.Hash) bool {
 				message := setup.getEvent(nodeIndex).getMessage(nodeIndex)
 
 				return bytes.Equal(proposal.RawProposal, message.proposal.RawProposal) &&
-					bytes.Equal(hash, message.hash)
+					hash == message.hash
 			}
 
 			// Make sure the preprepare message is built correctly
@@ -282,14 +282,14 @@ func TestProperty(t *testing.T) {
 			}
 
 			// Make sure the prepare message is built correctly
-			backend.buildPrepareMessageFn = func(proposal []byte, view *proto.View) *proto.IbftMessage {
+			backend.buildPrepareMessageFn = func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 				message := setup.getEvent(nodeIndex).getMessage(nodeIndex)
 
 				return buildBasicPrepareMessage(message.hash, nodes[nodeIndex], view)
 			}
 
 			// Make sure the commit message is built correctly
-			backend.buildCommitMessageFn = func(proposal []byte, view *proto.View) *proto.IbftMessage {
+			backend.buildCommitMessageFn = func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 				message := setup.getEvent(nodeIndex).getMessage(nodeIndex)
 
 				return buildBasicCommitMessage(message.hash, message.seal, nodes[nodeIndex], view)

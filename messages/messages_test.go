@@ -38,13 +38,13 @@ func generateRandomMessages(
 			case proto.MessageType_PREPARE:
 				message.Payload = &proto.IbftMessage_PrepareData{
 					PrepareData: &proto.PrepareMessage{
-						ProposalHash: nil,
+						ProposalHash: common.Hash{},
 					},
 				}
 			case proto.MessageType_COMMIT:
 				message.Payload = &proto.IbftMessage_CommitData{
 					CommitData: &proto.CommitMessage{
-						ProposalHash:  nil,
+						ProposalHash:  common.Hash{},
 						CommittedSeal: nil,
 					},
 				}

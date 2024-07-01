@@ -12,26 +12,18 @@ import (
 // All constructed messages must be signed by a validator for the whole message
 type MessageConstructor interface {
 	// BuildPrePrepareMessage builds a PREPREPARE message based on the passed in view and proposal
-	BuildPrePrepareMessage(
-		rawProposal []byte,
-		certificate *proto.RoundChangeCertificate,
-		view *proto.View,
-	) *proto.IbftMessage
+	BuildPrePrepareMessage(rawProposal []byte, certificate *proto.RoundChangeCertificate, view *proto.View) *proto.IbftMessage
 
 	// BuildPrepareMessage builds a PREPARE message based on the passed in view and proposal hash
-	BuildPrepareMessage(proposalHash []byte, view *proto.View) *proto.IbftMessage
+	BuildPrepareMessage(proposalHash common.Hash, view *proto.View) *proto.IbftMessage
 
 	// BuildCommitMessage builds a COMMIT message based on the passed in view and proposal hash
 	// Must create a committed seal for proposal hash and include it into the message
-	BuildCommitMessage(proposalHash []byte, view *proto.View) *proto.IbftMessage
+	BuildCommitMessage(proposalHash common.Hash, view *proto.View) *proto.IbftMessage
 
 	// BuildRoundChangeMessage builds a ROUND_CHANGE message based on the passed in view,
 	// latest prepared proposal, and latest prepared certificate
-	BuildRoundChangeMessage(
-		proposal *proto.Proposal,
-		certificate *proto.PreparedCertificate,
-		view *proto.View,
-	) *proto.IbftMessage
+	BuildRoundChangeMessage(proposal *proto.Proposal, certificate *proto.PreparedCertificate, view *proto.View) *proto.IbftMessage
 }
 
 // Verifier defines the verifier interface
@@ -49,11 +41,11 @@ type Verifier interface {
 	IsProposer(id common.Address, height, round uint64) bool
 
 	// IsValidProposalHash checks if the hash matches the proposal
-	IsValidProposalHash(proposal *proto.Proposal, hash []byte) bool
+	IsValidProposalHash(proposal *proto.Proposal, hash common.Hash) bool
 
 	// IsValidCommittedSeal checks
 	// if signature for proposal hash in committed seal is signed by a validator
-	IsValidCommittedSeal(proposalHash []byte, committedSeal *messages.CommittedSeal) bool
+	IsValidCommittedSeal(proposalHash common.Hash, committedSeal *messages.CommittedSeal) bool
 }
 
 // Notifier contains callback functions that notifies about consensus execution

@@ -10,6 +10,7 @@ import (
 	"github.com/0xPolygon/go-ibft/messages"
 	"github.com/0xPolygon/go-ibft/messages/proto"
 	"github.com/armon/go-metrics"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Logger represents the logger behaviour
@@ -28,16 +29,8 @@ type Messages interface {
 	SignalEvent(messageType proto.MessageType, view *proto.View)
 
 	// Messages fetchers //
-	GetValidMessages(
-		view *proto.View,
-		messageType proto.MessageType,
-		isValid func(*proto.IbftMessage) bool,
-	) []*proto.IbftMessage
-	GetExtendedRCC(
-		height uint64,
-		isValidMessage func(message *proto.IbftMessage) bool,
-		isValidRCC func(round uint64, msgs []*proto.IbftMessage) bool,
-	) []*proto.IbftMessage
+	GetValidMessages(view *proto.View, messageType proto.MessageType, isValid func(*proto.IbftMessage) bool) []*proto.IbftMessage
+	GetExtendedRCC(height uint64, isValidMessage func(message *proto.IbftMessage) bool, isValidRCC func(round uint64, msgs []*proto.IbftMessage) bool) []*proto.IbftMessage
 	GetMostRoundChangeMessages(minRound, height uint64) []*proto.IbftMessage
 
 	// Messages subscription handlers //
@@ -107,11 +100,7 @@ type IBFT struct {
 }
 
 // NewIBFT creates a new instance of the IBFT consensus protocol
-func NewIBFT(
-	log Logger,
-	backend Backend,
-	transport Transport,
-) *IBFT {
+func NewIBFT(log Logger, backend Backend, transport Transport) *IBFT {
 	return &IBFT{
 		log:              log,
 		backend:          backend,
@@ -214,20 +203,18 @@ func (i *IBFT) watchForFutureProposal(ctx context.Context) {
 		height    = view.Height
 		nextRound = view.Round + 1
 
-		sub = i.subscribe(
-			messages.SubscriptionDetails{
-				MessageType: proto.MessageType_PREPREPARE,
-				View: &proto.View{
-					Height: height,
-					Round:  nextRound,
-				},
-				HasMinRound: true,
-			})
+		sub = i.subscribe(messages.SubscriptionDetails{
+			MessageType: proto.MessageType_PREPREPARE,
+			View: &proto.View{
+				Height: height,
+				Round:  nextRound,
+			},
+			HasMinRound: true,
+		})
 	)
 
 	defer func() {
 		i.messages.Unsubscribe(sub.ID)
-
 		i.wg.Done()
 	}()
 
@@ -242,11 +229,7 @@ func (i *IBFT) watchForFutureProposal(ctx context.Context) {
 			}
 
 			// Extract the proposal
-			i.signalNewProposal(
-				ctx,
-				newProposalEvent{proposal, round},
-			)
-
+			i.signalNewProposal(ctx, newProposalEvent{proposal, round})
 			return
 		}
 	}
@@ -317,6 +300,7 @@ func (i *IBFT) RunSequence(ctx context.Context, h uint64) {
 	i.messages.PruneByHeight(h)
 
 	i.log.Info("sequence started", "height", h)
+
 	defer i.log.Info("sequence done", "height", h)
 	defer SetMeasurementTime("sequence", startTime)
 
@@ -413,7 +397,6 @@ func (i *IBFT) startRound(ctx context.Context) {
 		proposalMessage := i.buildProposal(ctx, view)
 		if proposalMessage == nil {
 			i.log.Error("unable to build proposal")
-
 			return
 		}
 
@@ -421,7 +404,6 @@ func (i *IBFT) startRound(ctx context.Context) {
 		i.log.Debug("block proposal accepted")
 
 		i.sendPreprepareMessage(proposalMessage)
-
 		i.log.Debug("pre-prepare message multicasted")
 	}
 
@@ -429,23 +411,17 @@ func (i *IBFT) startRound(ctx context.Context) {
 }
 
 // waitForRCC waits for valid RCC for the specified height and round
-func (i *IBFT) waitForRCC(
-	ctx context.Context,
-	height,
-	round uint64,
-) *proto.RoundChangeCertificate {
+func (i *IBFT) waitForRCC(ctx context.Context, height, round uint64) *proto.RoundChangeCertificate {
 	var (
 		view = &proto.View{
 			Height: height,
 			Round:  round,
 		}
 
-		sub = i.subscribe(
-			messages.SubscriptionDetails{
-				MessageType: proto.MessageType_ROUND_CHANGE,
-				View:        view,
-			},
-		)
+		sub = i.subscribe(messages.SubscriptionDetails{
+			MessageType: proto.MessageType_ROUND_CHANGE,
+			View:        view,
+		})
 	)
 
 	defer i.messages.Unsubscribe(sub.ID)
@@ -459,7 +435,6 @@ func (i *IBFT) waitForRCC(
 			if rcc == nil {
 				continue
 			}
-
 			return rcc
 		}
 	}
@@ -496,12 +471,7 @@ func (i *IBFT) handleRoundChangeMessage(view *proto.View) *proto.RoundChangeCert
 		return i.hasQuorumByMsgType(msgs, proto.MessageType_ROUND_CHANGE)
 	}
 
-	extendedRCC := i.messages.GetExtendedRCC(
-		height,
-		isValidMsgFn,
-		isValidRCCFn,
-	)
-
+	extendedRCC := i.messages.GetExtendedRCC(height, isValidMsgFn, isValidRCCFn)
 	if extendedRCC == nil {
 		return nil
 	}
@@ -513,10 +483,7 @@ func (i *IBFT) handleRoundChangeMessage(view *proto.View) *proto.RoundChangeCert
 
 // proposalMatchesCertificate checks a prepared certificate
 // against a proposal
-func (i *IBFT) proposalMatchesCertificate(
-	proposal *proto.Proposal,
-	certificate *proto.PreparedCertificate,
-) bool {
+func (i *IBFT) proposalMatchesCertificate(proposal *proto.Proposal, certificate *proto.PreparedCertificate) bool {
 	// Both the certificate and proposal need to be set
 	if proposal == nil && certificate == nil {
 		return true
@@ -527,7 +494,7 @@ func (i *IBFT) proposalMatchesCertificate(
 		return false
 	}
 
-	hashesInCertificate := make([][]byte, 0)
+	hashesInCertificate := make([]common.Hash, 0)
 
 	//	collect hash from pre-prepare message
 	proposalHash := messages.ExtractProposalHash(certificate.ProposalMessage)
@@ -585,12 +552,10 @@ func (i *IBFT) runNewRound(ctx context.Context) error {
 		view = i.state.getView()
 
 		// Subscribe for PREPREPARE messages
-		sub = i.subscribe(
-			messages.SubscriptionDetails{
-				MessageType: proto.MessageType_PREPREPARE,
-				View:        view,
-			},
-		)
+		sub = i.subscribe(messages.SubscriptionDetails{
+			MessageType: proto.MessageType_PREPREPARE,
+			View:        view,
+		})
 	)
 
 	// The subscription is not needed anymore after
@@ -741,7 +706,7 @@ func (i *IBFT) validateProposal(msg *proto.IbftMessage, view *proto.View) bool {
 	// block hashes
 	type roundHashTuple struct {
 		round uint64
-		hash  []byte
+		hash  common.Hash
 	}
 
 	roundsAndPreparedBlockHashes := make([]roundHashTuple, 0)
@@ -767,7 +732,7 @@ func (i *IBFT) validateProposal(msg *proto.IbftMessage, view *proto.View) bool {
 	// Find the max round
 	var (
 		maxRound     uint64
-		expectedHash []byte
+		expectedHash common.Hash
 	)
 
 	for _, tuple := range roundsAndPreparedBlockHashes {
@@ -778,11 +743,10 @@ func (i *IBFT) validateProposal(msg *proto.IbftMessage, view *proto.View) bool {
 	}
 
 	// Make sure hash of (EB, maxR) matches expected hash
-	return i.backend.IsValidProposalHash(
-		&proto.Proposal{
-			RawProposal: proposal.RawProposal,
-			Round:       maxRound,
-		},
+	return i.backend.IsValidProposalHash(&proto.Proposal{
+		RawProposal: proposal.RawProposal,
+		Round:       maxRound,
+	},
 		expectedHash,
 	)
 }
@@ -799,12 +763,7 @@ func (i *IBFT) handlePrePrepare(view *proto.View) *proto.IbftMessage {
 		return i.validateProposal(message, view)
 	}
 
-	msgs := i.messages.GetValidMessages(
-		view,
-		proto.MessageType_PREPREPARE,
-		isValidPrePrepare,
-	)
-
+	msgs := i.messages.GetValidMessages(view, proto.MessageType_PREPREPARE, isValidPrePrepare)
 	if len(msgs) < 1 {
 		return nil
 	}
@@ -822,12 +781,10 @@ func (i *IBFT) runPrepare(ctx context.Context) error {
 		view = i.state.getView()
 
 		// Subscribe to PREPARE messages
-		sub = i.subscribe(
-			messages.SubscriptionDetails{
-				MessageType: proto.MessageType_PREPARE,
-				View:        view,
-			},
-		)
+		sub = i.subscribe(messages.SubscriptionDetails{
+			MessageType: proto.MessageType_PREPARE,
+			View:        view,
+		})
 	)
 
 	// The subscription is not needed anymore after
@@ -855,17 +812,10 @@ func (i *IBFT) runPrepare(ctx context.Context) error {
 func (i *IBFT) handlePrepare(view *proto.View) bool {
 	isValidPrepare := func(message *proto.IbftMessage) bool {
 		// Verify that the proposal hash is valid
-		return i.backend.IsValidProposalHash(
-			i.state.getProposal(),
-			messages.ExtractPrepareHash(message),
-		)
+		return i.backend.IsValidProposalHash(i.state.getProposal(), messages.ExtractPrepareHash(message))
 	}
 
-	prepareMessages := i.messages.GetValidMessages(
-		view,
-		proto.MessageType_PREPARE,
-		isValidPrepare,
-	)
+	prepareMessages := i.messages.GetValidMessages(view, proto.MessageType_PREPARE, isValidPrepare)
 
 	if !i.hasQuorumByMsgType(prepareMessages, proto.MessageType_PREPARE) {
 		//	quorum not reached, keep polling
@@ -877,11 +827,10 @@ func (i *IBFT) handlePrepare(view *proto.View) bool {
 
 	i.log.Debug("commit message multicasted")
 
-	i.state.finalizePrepare(
-		&proto.PreparedCertificate{
-			ProposalMessage: i.state.getProposalMessage(),
-			PrepareMessages: prepareMessages,
-		},
+	i.state.finalizePrepare(&proto.PreparedCertificate{
+		ProposalMessage: i.state.getProposalMessage(),
+		PrepareMessages: prepareMessages,
+	},
 		i.state.getProposal(),
 	)
 
@@ -898,12 +847,10 @@ func (i *IBFT) runCommit(ctx context.Context) error {
 		view = i.state.getView()
 
 		// Subscribe to COMMIT messages
-		sub = i.subscribe(
-			messages.SubscriptionDetails{
-				MessageType: proto.MessageType_COMMIT,
-				View:        view,
-			},
-		)
+		sub = i.subscribe(messages.SubscriptionDetails{
+			MessageType: proto.MessageType_COMMIT,
+			View:        view,
+		})
 	)
 
 	// The subscription is not needed anymore after
@@ -953,7 +900,6 @@ func (i *IBFT) handleCommit(view *proto.View) bool {
 	if err != nil {
 		// safe check
 		i.log.Error("failed to extract committed seals from commit messages: %+v", err)
-
 		return false
 	}
 
@@ -978,11 +924,10 @@ func (i *IBFT) runFin(ctx context.Context) {
 func (i *IBFT) insertBlock() {
 	// Insert the block to the node's underlying
 	// blockchain layer
-	i.backend.InsertProposal(
-		&proto.Proposal{
-			RawProposal: i.state.getRawDataFromProposal(),
-			Round:       i.state.getRound(),
-		},
+	i.backend.InsertProposal(&proto.Proposal{
+		RawProposal: i.state.getRawDataFromProposal(),
+		Round:       i.state.getRound(),
+	},
 		i.state.getCommittedSeals(),
 	)
 
@@ -1009,20 +954,15 @@ func (i *IBFT) buildProposal(ctx context.Context, view *proto.View) *proto.IbftM
 	)
 
 	if round == 0 {
-		rawProposal := i.backend.BuildProposal(
-			&proto.View{
-				Height: height,
-				Round:  round,
-			})
+		rawProposal := i.backend.BuildProposal(&proto.View{
+			Height: height,
+			Round:  round,
+		})
 
-		return i.backend.BuildPrePrepareMessage(
-			rawProposal,
-			nil,
-			&proto.View{
-				Height: height,
-				Round:  round,
-			},
-		)
+		return i.backend.BuildPrePrepareMessage(rawProposal, nil, &proto.View{
+			Height: height,
+			Round:  round,
+		})
 	}
 
 	//	round > 0 -> needs RCC
@@ -1064,30 +1004,21 @@ func (i *IBFT) buildProposal(ctx context.Context, view *proto.View) *proto.IbftM
 
 	if previousProposal == nil {
 		//	build new proposal
-		proposal := i.backend.BuildProposal(
-			&proto.View{
-				Height: height,
-				Round:  round,
-			})
-
-		return i.backend.BuildPrePrepareMessage(
-			proposal,
-			rcc,
-			&proto.View{
-				Height: height,
-				Round:  round,
-			},
-		)
-	}
-
-	return i.backend.BuildPrePrepareMessage(
-		previousProposal,
-		rcc,
-		&proto.View{
+		proposal := i.backend.BuildProposal(&proto.View{
 			Height: height,
 			Round:  round,
-		},
-	)
+		})
+
+		return i.backend.BuildPrePrepareMessage(proposal, rcc, &proto.View{
+			Height: height,
+			Round:  round,
+		})
+	}
+
+	return i.backend.BuildPrePrepareMessage(previousProposal, rcc, &proto.View{
+		Height: height,
+		Round:  round,
+	})
 }
 
 // acceptProposal accepts the proposal and moves the state
@@ -1111,10 +1042,7 @@ func (i *IBFT) AddMessage(message *proto.IbftMessage) {
 		// Signal event if the quorum is reached. Since the subscriptions refer to the state height,
 		// no need to call this if the message height is not equal to the state height
 		if message.View.Height == i.state.getHeight() {
-			msgs := i.messages.GetValidMessages(
-				message.View,
-				message.Type,
-				func(_ *proto.IbftMessage) bool { return true })
+			msgs := i.messages.GetValidMessages(message.View, message.Type, func(_ *proto.IbftMessage) bool { return true })
 			if i.hasQuorumByMsgType(msgs, message.Type) {
 				i.messages.SignalEvent(message.Type, message.View)
 			}
@@ -1163,11 +1091,7 @@ func (i *IBFT) GetRound() uint64 {
 }
 
 // validPC verifies that the prepared certificate is valid
-func (i *IBFT) validPC(
-	certificate *proto.PreparedCertificate,
-	roundLimit,
-	height uint64,
-) bool {
+func (i *IBFT) validPC(certificate *proto.PreparedCertificate, roundLimit, height uint64) bool {
 	if certificate == nil {
 		// PCs that are not set are valid by default
 		return true
@@ -1178,10 +1102,7 @@ func (i *IBFT) validPC(
 		return false
 	}
 
-	allMessages := append(
-		[]*proto.IbftMessage{certificate.ProposalMessage},
-		certificate.PrepareMessages...,
-	)
+	allMessages := append([]*proto.IbftMessage{certificate.ProposalMessage}, certificate.PrepareMessages...)
 
 	// Make sure there are at least Quorum (PP + P) messages
 	// hasQuorum directly since the messages are of different types
@@ -1242,35 +1163,20 @@ func (i *IBFT) sendPreprepareMessage(message *proto.IbftMessage) {
 // sendRoundChangeMessage sends out the round change message
 func (i *IBFT) sendRoundChangeMessage(height, newRound uint64) {
 	i.transport.Multicast(
-		i.backend.BuildRoundChangeMessage(
-			i.state.getLatestPreparedProposal(),
-			i.state.getLatestPC(),
-			&proto.View{
-				Height: height,
-				Round:  newRound,
-			},
-		),
-	)
+		i.backend.BuildRoundChangeMessage(i.state.getLatestPreparedProposal(), i.state.getLatestPC(), &proto.View{
+			Height: height,
+			Round:  newRound,
+		}))
 }
 
 // sendPrepareMessage sends out the prepare message
 func (i *IBFT) sendPrepareMessage(view *proto.View) {
-	i.transport.Multicast(
-		i.backend.BuildPrepareMessage(
-			i.state.getProposalHash(),
-			view,
-		),
-	)
+	i.transport.Multicast(i.backend.BuildPrepareMessage(i.state.getProposalHash(), view))
 }
 
 // sendCommitMessage sends out the commit message
 func (i *IBFT) sendCommitMessage(view *proto.View) {
-	i.transport.Multicast(
-		i.backend.BuildCommitMessage(
-			i.state.getProposalHash(),
-			view,
-		),
-	)
+	i.transport.Multicast(i.backend.BuildCommitMessage(i.state.getProposalHash(), view))
 }
 
 // hasQuorumByMsgType provides information on whether messages of specific types have reached the quorum
@@ -1289,10 +1195,7 @@ func (i *IBFT) hasQuorumByMsgType(msgs []*proto.IbftMessage, msgType proto.Messa
 
 func (i *IBFT) subscribe(details messages.SubscriptionDetails) *messages.Subscription {
 	subscription := i.messages.Subscribe(details)
-	msgs := i.messages.GetValidMessages(
-		details.View,
-		details.MessageType,
-		func(_ *proto.IbftMessage) bool { return true })
+	msgs := i.messages.GetValidMessages(details.View, details.MessageType, func(_ *proto.IbftMessage) bool { return true })
 	// Check if any condition is already met
 	if i.hasQuorumByMsgType(msgs, details.MessageType) {
 		i.messages.SignalEvent(details.MessageType, details.View)

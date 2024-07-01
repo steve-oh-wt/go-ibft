@@ -42,10 +42,7 @@ func (es *eventSubscription) runLoop() {
 }
 
 // eventSupported checks if any notification event needs to be triggered
-func (es *eventSubscription) eventSupported(
-	messageType proto.MessageType,
-	view *proto.View,
-) bool {
+func (es *eventSubscription) eventSupported(messageType proto.MessageType, view *proto.View) bool {
 	// The heights must match
 	if view.Height != es.details.View.Height {
 		return false
@@ -69,10 +66,7 @@ func (es *eventSubscription) eventSupported(
 }
 
 // pushEvent sends the event off for processing by the subscription. [NON-BLOCKING]
-func (es *eventSubscription) pushEvent(
-	messageType proto.MessageType,
-	view *proto.View,
-) {
+func (es *eventSubscription) pushEvent(messageType proto.MessageType, view *proto.View) {
 	if !es.eventSupported(messageType, view) {
 		return
 	}

@@ -1,7 +1,6 @@
 package messages
 
 import (
-	"bytes"
 	"errors"
 
 	"github.com/0xPolygon/go-ibft/messages/proto"
@@ -50,14 +49,14 @@ func ExtractCommittedSeal(commitMessage *proto.IbftMessage) *CommittedSeal {
 }
 
 // ExtractCommitHash extracts the commit proposal hash from the passed in message
-func ExtractCommitHash(commitMessage *proto.IbftMessage) []byte {
+func ExtractCommitHash(commitMessage *proto.IbftMessage) common.Hash {
 	if commitMessage.Type != proto.MessageType_COMMIT {
-		return nil
+		return common.Hash{}
 	}
 
 	commitData, ok := commitMessage.Payload.(*proto.IbftMessage_CommitData)
 	if !ok {
-		return nil
+		return common.Hash{}
 	}
 
 	return commitData.CommitData.ProposalHash
@@ -78,14 +77,14 @@ func ExtractProposal(proposalMessage *proto.IbftMessage) *proto.Proposal {
 }
 
 // ExtractProposalHash extracts the proposal hash from the passed in message
-func ExtractProposalHash(proposalMessage *proto.IbftMessage) []byte {
+func ExtractProposalHash(proposalMessage *proto.IbftMessage) common.Hash {
 	if proposalMessage.Type != proto.MessageType_PREPREPARE {
-		return nil
+		return common.Hash{}
 	}
 
 	preprepareData, ok := proposalMessage.Payload.(*proto.IbftMessage_PreprepareData)
 	if !ok {
-		return nil
+		return common.Hash{}
 	}
 
 	return preprepareData.PreprepareData.ProposalHash
@@ -106,14 +105,14 @@ func ExtractRoundChangeCertificate(proposalMessage *proto.IbftMessage) *proto.Ro
 }
 
 // ExtractPrepareHash extracts the prepare proposal hash from the passed in message
-func ExtractPrepareHash(prepareMessage *proto.IbftMessage) []byte {
+func ExtractPrepareHash(prepareMessage *proto.IbftMessage) common.Hash {
 	if prepareMessage.Type != proto.MessageType_PREPARE {
-		return nil
+		return common.Hash{}
 	}
 
 	prepareData, ok := prepareMessage.Payload.(*proto.IbftMessage_PrepareData)
 	if !ok {
-		return nil
+		return common.Hash{}
 	}
 
 	return prepareData.PrepareData.ProposalHash
@@ -176,7 +175,7 @@ func AreValidPCMessages(messages []*proto.IbftMessage, height uint64, roundLimit
 	round := messages[0].View.Round
 	senderMap := make(map[common.Address]struct{})
 
-	var hash []byte
+	hash := common.Hash{}
 
 	for _, message := range messages {
 		// all messages must have the same height
@@ -191,14 +190,14 @@ func AreValidPCMessages(messages []*proto.IbftMessage, height uint64, roundLimit
 
 		// all messages must have the same proposal hash
 		extractedHash, ok := extractPCMessageHash(message)
-		if hash == nil {
+		if hash == (common.Hash{}) {
 			// No previous hash for comparison,
 			// set the first one as the reference, as
 			// all of them need to be the same anyway
 			hash = extractedHash
 		}
 
-		if !ok || !bytes.Equal(hash, extractedHash) {
+		if !ok || hash != extractedHash {
 			return false
 		}
 
@@ -215,15 +214,15 @@ func AreValidPCMessages(messages []*proto.IbftMessage, height uint64, roundLimit
 }
 
 // extractPCMessageHash extracts the hash from a PC message
-func extractPCMessageHash(message *proto.IbftMessage) ([]byte, bool) {
+func extractPCMessageHash(message *proto.IbftMessage) (common.Hash, bool) {
 	switch message.Type {
 	case proto.MessageType_PREPREPARE:
 		return ExtractProposalHash(message), true
 	case proto.MessageType_PREPARE:
 		return ExtractPrepareHash(message), true
 	case proto.MessageType_COMMIT, proto.MessageType_ROUND_CHANGE:
-		return nil, false
+		return common.Hash{}, false
 	default:
-		return nil, false
+		return common.Hash{}, false
 	}
 }

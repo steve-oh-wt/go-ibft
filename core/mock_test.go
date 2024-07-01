@@ -25,7 +25,7 @@ var (
 			RawProposal: []byte("bad"),
 			Round:       100,
 		},
-		hash: []byte("bad proposal hash"),
+		hash: common.BytesToHash([]byte("bad proposal hash")),
 		seal: []byte("bad seal"),
 	}
 )
@@ -36,7 +36,7 @@ func newCorrectRoundMessage(round uint64) roundMessage {
 			RawProposal: validEthereumBlock,
 			Round:       round,
 		},
-		hash: []byte("proposal hash"),
+		hash: common.BytesToHash([]byte("proposal hash")),
 		seal: []byte("seal"),
 	}
 }
@@ -46,21 +46,13 @@ type isValidBlockDelegate func([]byte) bool
 type IsValidValidatorDelegate func(*proto.IbftMessage) bool
 type isProposerDelegate func(common.Address, uint64, uint64) bool
 type buildEthereumBlockDelegate func(uint64) []byte
-type isValidProposalHashDelegate func(*proto.Proposal, []byte) bool
-type isValidCommittedSealDelegate func([]byte, *messages.CommittedSeal) bool
+type isValidProposalHashDelegate func(*proto.Proposal, common.Hash) bool
+type isValidCommittedSealDelegate func(common.Hash, *messages.CommittedSeal) bool
 
-type buildPrePrepareMessageDelegate func(
-	[]byte,
-	*proto.RoundChangeCertificate,
-	*proto.View,
-) *proto.IbftMessage
-type buildPrepareMessageDelegate func([]byte, *proto.View) *proto.IbftMessage
-type buildCommitMessageDelegate func([]byte, *proto.View) *proto.IbftMessage
-type buildRoundChangeMessageDelegate func(
-	*proto.Proposal,
-	*proto.PreparedCertificate,
-	*proto.View,
-) *proto.IbftMessage
+type buildPrePrepareMessageDelegate func([]byte, *proto.RoundChangeCertificate, *proto.View) *proto.IbftMessage
+type buildPrepareMessageDelegate func(common.Hash, *proto.View) *proto.IbftMessage
+type buildCommitMessageDelegate func(common.Hash, *proto.View) *proto.IbftMessage
+type buildRoundChangeMessageDelegate func(*proto.Proposal, *proto.PreparedCertificate, *proto.View) *proto.IbftMessage
 
 type insertProposalDelegate func(*proto.Proposal, []*messages.CommittedSeal)
 type idDelegate func() common.Address
@@ -71,13 +63,12 @@ var _ Backend = &mockBackend{}
 
 // mockBackend is the mock backend structure that is configurable
 type mockBackend struct {
-	isValidProposalFn      isValidBlockDelegate
-	IsValidValidatorFn     IsValidValidatorDelegate
-	isProposerFn           isProposerDelegate
-	buildProposalFn        buildEthereumBlockDelegate
-	isValidProposalHashFn  isValidProposalHashDelegate
-	isValidCommittedSealFn isValidCommittedSealDelegate
-
+	isValidProposalFn         isValidBlockDelegate
+	IsValidValidatorFn        IsValidValidatorDelegate
+	isProposerFn              isProposerDelegate
+	buildProposalFn           buildEthereumBlockDelegate
+	isValidProposalHashFn     isValidProposalHashDelegate
+	isValidCommittedSealFn    isValidCommittedSealDelegate
 	buildPrePrepareMessageFn  buildPrePrepareMessageDelegate
 	buildPrepareMessageFn     buildPrepareMessageDelegate
 	buildCommitMessageFn      buildCommitMessageDelegate
@@ -135,7 +126,7 @@ func (m mockBackend) BuildProposal(view *proto.View) []byte {
 	return nil
 }
 
-func (m mockBackend) IsValidProposalHash(proposal *proto.Proposal, hash []byte) bool {
+func (m mockBackend) IsValidProposalHash(proposal *proto.Proposal, hash common.Hash) bool {
 	if m.isValidProposalHashFn != nil {
 		return m.isValidProposalHashFn(proposal, hash)
 	}
@@ -143,7 +134,7 @@ func (m mockBackend) IsValidProposalHash(proposal *proto.Proposal, hash []byte) 
 	return true
 }
 
-func (m mockBackend) IsValidCommittedSeal(proposal []byte, committedSeal *messages.CommittedSeal) bool {
+func (m mockBackend) IsValidCommittedSeal(proposal common.Hash, committedSeal *messages.CommittedSeal) bool {
 	if m.isValidCommittedSealFn != nil {
 		return m.isValidCommittedSealFn(proposal, committedSeal)
 	}
@@ -163,7 +154,7 @@ func (m mockBackend) BuildPrePrepareMessage(
 	return nil
 }
 
-func (m mockBackend) BuildPrepareMessage(proposal []byte, view *proto.View) *proto.IbftMessage {
+func (m mockBackend) BuildPrepareMessage(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 	if m.buildPrepareMessageFn != nil {
 		return m.buildPrepareMessageFn(proposal, view)
 	}
@@ -171,7 +162,7 @@ func (m mockBackend) BuildPrepareMessage(proposal []byte, view *proto.View) *pro
 	return nil
 }
 
-func (m mockBackend) BuildCommitMessage(proposalHash []byte, view *proto.View) *proto.IbftMessage {
+func (m mockBackend) BuildCommitMessage(proposalHash common.Hash, view *proto.View) *proto.IbftMessage {
 	if m.buildCommitMessageFn != nil {
 		return m.buildCommitMessageFn(proposalHash, view)
 	}

@@ -18,7 +18,7 @@ import (
 
 var (
 	validEthereumBlock = []byte("valid ethereum block")
-	validProposalHash  = []byte("valid proposal hash")
+	validProposalHash  = common.BytesToHash([]byte("valid proposal hash"))
 	validCommittedSeal = []byte("valid committed seal")
 )
 
@@ -30,11 +30,8 @@ func buildValidEthereumBlock(_ uint64) []byte {
 	return validEthereumBlock
 }
 
-func isValidProposalHash(proposal *proto.Proposal, proposalHash []byte) bool {
-	return bytes.Equal(
-		proposalHash,
-		validProposalHash,
-	)
+func isValidProposalHash(proposal *proto.Proposal, proposalHash common.Hash) bool {
+	return proposalHash == validProposalHash
 }
 
 type node struct {
@@ -63,40 +60,16 @@ func (n *node) buildPrePrepare(
 	)
 }
 
-func (n *node) buildPrepare(
-	_ []byte,
-	view *proto.View,
-) *proto.IbftMessage {
-	return buildBasicPrepareMessage(
-		validProposalHash,
-		n.address,
-		view,
-	)
+func (n *node) buildPrepare(_ common.Hash, view *proto.View) *proto.IbftMessage {
+	return buildBasicPrepareMessage(validProposalHash, n.address, view)
 }
 
-func (n *node) buildCommit(
-	_ []byte,
-	view *proto.View,
-) *proto.IbftMessage {
-	return buildBasicCommitMessage(
-		validProposalHash,
-		validCommittedSeal,
-		n.address,
-		view,
-	)
+func (n *node) buildCommit(_ common.Hash, view *proto.View) *proto.IbftMessage {
+	return buildBasicCommitMessage(validProposalHash, validCommittedSeal, n.address, view)
 }
 
-func (n *node) buildRoundChange(
-	proposal *proto.Proposal,
-	certificate *proto.PreparedCertificate,
-	view *proto.View,
-) *proto.IbftMessage {
-	return buildBasicRoundChangeMessage(
-		proposal,
-		certificate,
-		view,
-		n.address,
-	)
+func (n *node) buildRoundChange(proposal *proto.Proposal, certificate *proto.PreparedCertificate, view *proto.View) *proto.IbftMessage {
+	return buildBasicRoundChangeMessage(proposal, certificate, view, n.address)
 }
 
 func (n *node) runSequence(ctx context.Context, height uint64) {

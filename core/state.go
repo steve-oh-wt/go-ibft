@@ -5,6 +5,7 @@ import (
 
 	"github.com/0xPolygon/go-ibft/messages"
 	"github.com/0xPolygon/go-ibft/messages/proto"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type stateType uint8
@@ -104,7 +105,7 @@ func (s *state) getProposalMessage() *proto.IbftMessage {
 	return s.proposalMessage
 }
 
-func (s *state) getProposalHash() []byte {
+func (s *state) getProposalHash() common.Hash {
 	s.RLock()
 	defer s.RUnlock()
 

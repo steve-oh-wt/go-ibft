@@ -291,7 +291,7 @@ type PrePrepareMessage struct {
 	// proposal is the actual data being proposed for consensus
 	Proposal *Proposal `protobuf:"bytes,1,opt,name=proposal,proto3" json:"proposal,omitempty"`
 	// proposalHash is the Keccak hash of the proposal
-	ProposalHash []byte `protobuf:"bytes,2,opt,name=proposalHash,proto3" json:"proposalHash,omitempty"`
+	ProposalHash common.Hash `protobuf:"bytes,2,opt,name=proposalHash,proto3" json:"proposalHash,omitempty"`
 	// certificate is the RCC that can accompany
 	// a proposal message
 	Certificate *RoundChangeCertificate `protobuf:"bytes,3,opt,name=certificate,proto3" json:"certificate,omitempty"`
@@ -336,11 +336,11 @@ func (x *PrePrepareMessage) GetProposal() *Proposal {
 	return nil
 }
 
-func (x *PrePrepareMessage) GetProposalHash() []byte {
+func (x *PrePrepareMessage) GetProposalHash() common.Hash {
 	if x != nil {
 		return x.ProposalHash
 	}
-	return nil
+	return common.Hash{}
 }
 
 func (x *PrePrepareMessage) GetCertificate() *RoundChangeCertificate {
@@ -357,7 +357,7 @@ type PrepareMessage struct {
 	unknownFields protoimpl.UnknownFields
 
 	// proposalHash is the Keccak hash of the proposal
-	ProposalHash []byte `protobuf:"bytes,1,opt,name=proposalHash,proto3" json:"proposalHash,omitempty"`
+	ProposalHash common.Hash `protobuf:"bytes,1,opt,name=proposalHash,proto3" json:"proposalHash,omitempty"`
 }
 
 func (x *PrepareMessage) Reset() {
@@ -392,11 +392,11 @@ func (*PrepareMessage) Descriptor() ([]byte, []int) {
 	return file_messages_proto_messages_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *PrepareMessage) GetProposalHash() []byte {
+func (x *PrepareMessage) GetProposalHash() common.Hash {
 	if x != nil {
 		return x.ProposalHash
 	}
-	return nil
+	return common.Hash{}
 }
 
 // CommitMessage is the message for the COMMIT phase
@@ -406,7 +406,7 @@ type CommitMessage struct {
 	unknownFields protoimpl.UnknownFields
 
 	// proposalHash is the Keccak hash of the proposal
-	ProposalHash []byte `protobuf:"bytes,1,opt,name=proposalHash,proto3" json:"proposalHash,omitempty"`
+	ProposalHash common.Hash `protobuf:"bytes,1,opt,name=proposalHash,proto3" json:"proposalHash,omitempty"`
 	// committedSeal is the seal of the sender
 	CommittedSeal []byte `protobuf:"bytes,2,opt,name=committedSeal,proto3" json:"committedSeal,omitempty"`
 }
@@ -443,11 +443,11 @@ func (*CommitMessage) Descriptor() ([]byte, []int) {
 	return file_messages_proto_messages_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *CommitMessage) GetProposalHash() []byte {
+func (x *CommitMessage) GetProposalHash() common.Hash {
 	if x != nil {
 		return x.ProposalHash
 	}
-	return nil
+	return common.Hash{}
 }
 
 func (x *CommitMessage) GetCommittedSeal() []byte {

@@ -9,7 +9,7 @@ import (
 	"github.com/0xPolygon/go-ibft/messages/proto"
 )
 
-var proposalHash = []byte("proposal hash")
+var proposalHash = common.BytesToHash([]byte("proposal hash"))
 
 func TestMessages_ExtractCommittedSeals(t *testing.T) {
 	t.Parallel()
@@ -89,11 +89,11 @@ func TestMessages_ExtractCommittedSeals(t *testing.T) {
 func TestMessages_ExtractCommitHash(t *testing.T) {
 	t.Parallel()
 
-	commitHash := []byte("commit hash")
+	commitHash := common.BytesToHash([]byte("commit hash"))
 
 	testTable := []struct {
 		name               string
-		expectedCommitHash []byte
+		expectedCommitHash common.Hash
 		message            *proto.IbftMessage
 	}{
 		{
@@ -110,7 +110,7 @@ func TestMessages_ExtractCommitHash(t *testing.T) {
 		},
 		{
 			"invalid message",
-			nil,
+			common.Hash{},
 			&proto.IbftMessage{
 				Type: proto.MessageType_PREPARE,
 			},
@@ -123,11 +123,7 @@ func TestMessages_ExtractCommitHash(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(
-				t,
-				testCase.expectedCommitHash,
-				ExtractCommitHash(testCase.message),
-			)
+			assert.Equal(t, testCase.expectedCommitHash, ExtractCommitHash(testCase.message))
 		})
 	}
 }
@@ -183,7 +179,7 @@ func TestMessages_ExtractProposalHash(t *testing.T) {
 
 	testTable := []struct {
 		name                 string
-		expectedProposalHash []byte
+		expectedProposalHash common.Hash
 		message              *proto.IbftMessage
 	}{
 		{
@@ -200,7 +196,7 @@ func TestMessages_ExtractProposalHash(t *testing.T) {
 		},
 		{
 			"invalid message",
-			nil,
+			common.Hash{},
 			&proto.IbftMessage{
 				Type: proto.MessageType_PREPARE,
 			},
@@ -273,11 +269,11 @@ func TestMessages_ExtractRCC(t *testing.T) {
 func TestMessages_ExtractPrepareHash(t *testing.T) {
 	t.Parallel()
 
-	prepareHash := []byte("prepare hash")
+	prepareHash := common.BytesToHash([]byte("prepare hash"))
 
 	testTable := []struct {
 		name                string
-		expectedPrepareHash []byte
+		expectedPrepareHash common.Hash
 		message             *proto.IbftMessage
 	}{
 		{
@@ -294,7 +290,7 @@ func TestMessages_ExtractPrepareHash(t *testing.T) {
 		},
 		{
 			"invalid message",
-			nil,
+			common.Hash{},
 			&proto.IbftMessage{
 				Type: proto.MessageType_PREPREPARE,
 			},
@@ -512,7 +508,7 @@ func TestMessages_HaveSameProposalHash(t *testing.T) {
 					Type: proto.MessageType_PREPARE,
 					Payload: &proto.IbftMessage_PrepareData{
 						PrepareData: &proto.PrepareMessage{
-							ProposalHash: []byte("differing hash"),
+							ProposalHash: common.BytesToHash([]byte("differing hash")),
 						},
 					},
 					View: &proto.View{

@@ -31,7 +31,7 @@ func proposalMatches(proposal *proto.Proposal, message *proto.IbftMessage) bool 
 		bytes.Equal(proposal.RawProposal, extractedProposal.RawProposal)
 }
 
-func prepareHashMatches(prepareHash []byte, message *proto.IbftMessage) bool {
+func prepareHashMatches(prepareHash common.Hash, message *proto.IbftMessage) bool {
 	if message == nil || message.Type != proto.MessageType_PREPARE {
 		return false
 	}
@@ -39,10 +39,10 @@ func prepareHashMatches(prepareHash []byte, message *proto.IbftMessage) bool {
 	prepareData, _ := message.Payload.(*proto.IbftMessage_PrepareData)
 	extractedPrepareHash := prepareData.PrepareData.ProposalHash
 
-	return bytes.Equal(prepareHash, extractedPrepareHash)
+	return prepareHash == extractedPrepareHash
 }
 
-func commitHashMatches(commitHash []byte, message *proto.IbftMessage) bool {
+func commitHashMatches(commitHash common.Hash, message *proto.IbftMessage) bool {
 	if message == nil || message.Type != proto.MessageType_COMMIT {
 		return false
 	}
@@ -50,7 +50,7 @@ func commitHashMatches(commitHash []byte, message *proto.IbftMessage) bool {
 	commitData, _ := message.Payload.(*proto.IbftMessage_CommitData)
 	extractedCommitHash := commitData.CommitData.ProposalHash
 
-	return bytes.Equal(commitHash, extractedCommitHash)
+	return commitHash == extractedCommitHash
 }
 
 func generateMessages(count uint64, messageType proto.MessageType) []*proto.IbftMessage {
@@ -110,7 +110,7 @@ func generateMessagesWithUniqueSender(count uint64, messageType proto.MessageTyp
 	return messages
 }
 
-func appendProposalHash(messages []*proto.IbftMessage, proposalHash []byte) {
+func appendProposalHash(messages []*proto.IbftMessage, proposalHash common.Hash) {
 	for _, message := range messages {
 		switch message.Type {
 		case proto.MessageType_PREPREPARE:
@@ -156,10 +156,7 @@ func filterMessages(messages []*proto.IbftMessage, isValid func(message *proto.I
 	return newMessages
 }
 
-func generateFilledRCMessages(
-	quorum uint64,
-	proposal *proto.Proposal,
-	proposalHash []byte) []*proto.IbftMessage {
+func generateFilledRCMessages(quorum uint64, proposal *proto.Proposal, proposalHash common.Hash) []*proto.IbftMessage {
 	// Generate random RC messages
 	roundChangeMessages := generateMessagesWithUniqueSender(quorum, proto.MessageType_ROUND_CHANGE)
 	prepareMessages := generateMessages(quorum-1, proto.MessageType_PREPARE)
@@ -337,7 +334,7 @@ func TestRunNewRound_Proposer(t *testing.T) {
 					buildProposalFn: func(_ uint64) []byte {
 						return correctRoundMessage.proposal.GetRawProposal()
 					},
-					buildPrepareMessageFn: func(_ []byte, view *proto.View) *proto.IbftMessage {
+					buildPrepareMessageFn: func(_ common.Hash, view *proto.View) *proto.IbftMessage {
 						return &proto.IbftMessage{
 							View: view,
 							Type: proto.MessageType_PREPARE,
@@ -504,7 +501,7 @@ func TestRunNewRound_Proposer(t *testing.T) {
 					buildProposalFn: func(_ uint64) []byte {
 						return proposal
 					},
-					buildPrepareMessageFn: func(_ []byte, view *proto.View) *proto.IbftMessage {
+					buildPrepareMessageFn: func(_ common.Hash, view *proto.View) *proto.IbftMessage {
 						return &proto.IbftMessage{
 							View: view,
 							Type: proto.MessageType_PREPARE,
@@ -624,7 +621,7 @@ func TestRunNewRound_Validator_Zero(t *testing.T) {
 				return common.BytesToAddress([]byte("non proposer"))
 			},
 			getVotingPowerFn: testCommonGetVotingPowertFnForCnt(1),
-			buildPrepareMessageFn: func(proposal []byte, view *proto.View) *proto.IbftMessage {
+			buildPrepareMessageFn: func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 				return &proto.IbftMessage{
 					View: view,
 					Type: proto.MessageType_PREPARE,
@@ -795,7 +792,7 @@ func TestRunNewRound_Validator_NonZero(t *testing.T) {
 						return common.BytesToAddress([]byte("non proposer"))
 					},
 					getVotingPowerFn: testCommonGetVotingPowertFnForCnt(quorum),
-					buildPrepareMessageFn: func(proposal []byte, view *proto.View) *proto.IbftMessage {
+					buildPrepareMessageFn: func(proposal common.Hash, view *proto.View) *proto.IbftMessage {
 						return &proto.IbftMessage{
 							View: view,
 							Type: proto.MessageType_PREPARE,
@@ -889,7 +886,7 @@ func TestRunPrepare(t *testing.T) {
 					}
 				}}
 				backend = mockBackend{
-					buildCommitMessageFn: func(_ []byte, view *proto.View) *proto.IbftMessage {
+					buildCommitMessageFn: func(_ common.Hash, view *proto.View) *proto.IbftMessage {
 						return &proto.IbftMessage{
 							View: view,
 							Type: proto.MessageType_COMMIT,
@@ -901,8 +898,8 @@ func TestRunPrepare(t *testing.T) {
 						}
 					},
 					getVotingPowerFn: testCommonGetVotingPowertFnForCnt(1),
-					isValidProposalHashFn: func(_ *proto.Proposal, hash []byte) bool {
-						return bytes.Equal(correctRoundMessage.hash, hash)
+					isValidProposalHashFn: func(_ *proto.Proposal, hash common.Hash) bool {
+						return correctRoundMessage.hash == hash
 					},
 				}
 				messages = mockMessages{
@@ -1006,8 +1003,8 @@ func TestRunCommit(t *testing.T) {
 						insertedCommittedSeals = committedSeals
 					},
 					getVotingPowerFn: testCommonGetVotingPowertFnForCnt(1),
-					isValidProposalHashFn: func(_ *proto.Proposal, hash []byte) bool {
-						return bytes.Equal(correctRoundMessage.hash, hash)
+					isValidProposalHashFn: func(_ *proto.Proposal, hash common.Hash) bool {
+						return correctRoundMessage.hash == hash
 					},
 				}
 				messages = mockMessages{
@@ -1432,9 +1429,9 @@ func TestIBFT_FutureProposal(t *testing.T) {
 					idFn: func() common.Address {
 						return nodeID
 					},
-					isValidProposalHashFn: func(p *proto.Proposal, hash []byte) bool {
+					isValidProposalHashFn: func(p *proto.Proposal, hash common.Hash) bool {
 						if bytes.Equal(p.RawProposal, correctRoundMessage.proposal.RawProposal) {
-							return bytes.Equal(hash, correctRoundMessage.hash)
+							return hash == correctRoundMessage.hash
 						}
 
 						return false
@@ -1680,8 +1677,8 @@ func TestIBFT_ValidPC(t *testing.T) {
 		}
 
 		// Make sure the proposal has a different hash than the prepare messages
-		appendProposalHash([]*proto.IbftMessage{certificate.ProposalMessage}, []byte("proposal hash 1"))
-		appendProposalHash(certificate.PrepareMessages, []byte("proposal hash 2"))
+		appendProposalHash([]*proto.IbftMessage{certificate.ProposalMessage}, common.BytesToHash([]byte("proposal hash 1")))
+		appendProposalHash(certificate.PrepareMessages, common.BytesToHash([]byte("proposal hash 2")))
 
 		assert.False(t, i.validPC(certificate, 0, 0))
 	})
@@ -2095,7 +2092,7 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 		var (
 			log     = mockLogger{}
 			backend = mockBackend{
-				isValidProposalHashFn: func(_ *proto.Proposal, _ []byte) bool {
+				isValidProposalHashFn: func(_ *proto.Proposal, _ common.Hash) bool {
 					return false
 				},
 				isProposerFn: func(_ common.Address, _ uint64, _ uint64) bool {
@@ -2677,8 +2674,8 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 			nonValidator = common.BytesToAddress([]byte("non validator"))
 			rawProposal  = []byte("raw proposal")
 
-			hashFn = func(rawProposal []byte, round uint64) []byte {
-				return []byte(fmt.Sprintf("%s_%d", rawProposal, round))
+			hashFn = func(rawProposal []byte, round uint64) common.Hash {
+				return common.BytesToHash([]byte(fmt.Sprintf("%s_%d", rawProposal, round)))
 			}
 
 			correctProposalHash = hashFn(rawProposal, round)
@@ -2694,11 +2691,8 @@ func TestIBFT_ValidateProposal(t *testing.T) {
 				IsValidValidatorFn: func(m *proto.IbftMessage) bool {
 					return m.From != nonValidator
 				},
-				isValidProposalHashFn: func(p *proto.Proposal, b []byte) bool {
-					return bytes.Equal(
-						b,
-						hashFn(p.RawProposal, p.Round),
-					)
+				isValidProposalHashFn: func(p *proto.Proposal, b common.Hash) bool {
+					return b == hashFn(p.RawProposal, p.Round)
 				},
 			}
 			transport = mockTransport{}

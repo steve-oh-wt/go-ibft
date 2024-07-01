@@ -333,7 +333,7 @@ func createBadHashPrePrepareMessageFn(node *node) buildPrePrepareMessageDelegate
 		view *proto.View) *proto.IbftMessage {
 		proposalHash := validProposalHash
 		if node.byzantine {
-			proposalHash = []byte("invalid proposal hash")
+			proposalHash = common.BytesToHash([]byte("invalid proposal hash"))
 		}
 
 		return buildBasicPreprepareMessage(
@@ -347,10 +347,10 @@ func createBadHashPrePrepareMessageFn(node *node) buildPrePrepareMessageDelegate
 }
 
 func createBadHashPrepareMessageFn(node *node) buildPrepareMessageDelegate {
-	return func(_ []byte, view *proto.View) *proto.IbftMessage {
+	return func(_ common.Hash, view *proto.View) *proto.IbftMessage {
 		proposalHash := validProposalHash
 		if node.byzantine {
-			proposalHash = []byte("invalid proposal hash")
+			proposalHash = common.BytesToHash([]byte("invalid proposal hash"))
 		}
 
 		return buildBasicPrepareMessage(
@@ -372,7 +372,7 @@ func createForcedRCProposerFn(c *cluster) isProposerDelegate {
 }
 
 func createBadCommitMessageFn(node *node) buildCommitMessageDelegate {
-	return func(_ []byte, view *proto.View) *proto.IbftMessage {
+	return func(_ common.Hash, view *proto.View) *proto.IbftMessage {
 		committedSeal := validCommittedSeal
 		if node.byzantine {
 			committedSeal = []byte("invalid committed seal")
@@ -446,13 +446,12 @@ func (b *mockBackendBuilder) build(node *node) *mockBackend {
 	}
 
 	return &mockBackend{
-		isValidProposalFn:      isValidProposal,
-		isValidProposalHashFn:  isValidProposalHash,
-		IsValidValidatorFn:     nil,
-		isValidCommittedSealFn: nil,
-		isProposerFn:           b.isProposerFn,
-		idFn:                   b.idFn,
-
+		isValidProposalFn:         isValidProposal,
+		isValidProposalHashFn:     isValidProposalHash,
+		IsValidValidatorFn:        nil,
+		isValidCommittedSealFn:    nil,
+		isProposerFn:              b.isProposerFn,
+		idFn:                      b.idFn,
 		buildProposalFn:           buildValidEthereumBlock,
 		buildPrePrepareMessageFn:  b.buildPrePrepareMessageFn,
 		buildPrepareMessageFn:     b.buildPrepareMessageFn,
